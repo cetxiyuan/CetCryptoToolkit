@@ -123,7 +123,7 @@ void MainWindow::initFeaturesPlugin()
             this->setWindowTitle(expireInfo);
             this->statusBar()->showMessage(tr("%1 请激活后使用！").arg(expireInfo), 60 * 1000);
         }
-        //this->centralWidget()->setEnabled(activated);
+        this->centralWidget()->setEnabled(activated);
 
         if (!auto_timing_active && CetLicenseInterface::ACTIVATE_CANCEL != result) {
             QMessageBox::information(this, tr("通知"), (m_cetLicenseInterface? 
