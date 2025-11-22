@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QMessageBox>
 #include <QProcess>
+#include <QVariantMap>
 #include <QTimer>
 
 #include <QDebug>
@@ -102,7 +103,8 @@ CertificateManager::CertificateManager(OpenSSLHelper *openSSLHelper, QWidget *pa
     ui->localityLineEdit->setText("XiaMen");
     ui->organizationLineEdit->setText("CetXiyuan");
     ui->organizationUnitLineEdit->setText("IT Department");
-    ui->commonLineEdit->setText("172.16.90.86");
+    ui->commonLineEdit->setText("example.com");
+    ui->emailAddressLineEdit->setText("admin@example.com");
 
     ui->keyTypeComboBox->addItem("RSA", "rsa");
     ui->keyTypeComboBox->addItem("ECC", "ec");
@@ -195,7 +197,7 @@ bool CertificateManager::genCertificateOpenssl(int type, const QString &outputDi
     QString organizationUnit = ui->organizationUnitLineEdit->text();
     QString commonName = ui->commonLineEdit->text();
     QString emailAddress = ui->emailAddressLineEdit->text();
-    QString subjectDN = tr("/C=%1/ST=%2/L=%3/O=%4/OU=%5/E=%6/CN=%7")
+    QString subjectDN = tr("/C=%1/ST=%2/L=%3/O=%4/OU=%5/emailAddress=%6/CN=%7")
         .arg(country, stateProvince, locality, organization)
         .arg(organizationUnit, emailAddress, commonName);
 
@@ -328,7 +330,7 @@ bool CertificateManager::genCertificateOpenssl(int type, const QString &outputDi
                 CAROOT_PEM_PRIVATEKEY(outputDir, CAROOT_CUS_CANAME),
                 CAROOT_PEM_PUBLICKEY(outputDir, CAROOT_CUS_CANAME)))
             return false;
-        if (!m_openSSLHelper->opensslGenCertCA(validDays, subjectDN,
+        if (!m_openSSLHelper->opensslGenSelfCert(validDays, subjectDN,
                 CAROOT_PEM_PRIVATEKEY(outputDir, CAROOT_CUS_CANAME),
                 CAROOT_PEM_CERT(outputDir, CAROOT_CUS_CANAME),
                 hashAlgo))
@@ -346,7 +348,7 @@ bool CertificateManager::genCertificateOpenssl(int type, const QString &outputDi
         }
         break;
     case CERT_RootCACetXiyuan: { // 一级根证书(CetXiyuan)
-        QString subjectDN = tr("/C=%1/ST=%2/L=%3/O=%4/OU=%5/E=%6/CN=%7")
+        QString subjectDN = tr("/C=%1/ST=%2/L=%3/O=%4/OU=%5/emailAddress=%6/CN=%7")
                             .arg(CAROOT_DEF_COUNTRY, CAROOT_DEF_STATE, CAROOT_DEF_LOCALITY)
                             .arg(CAROOT_DEF_ORGANIZATION, CAROOT_DEF_ORGANIZATIONUNIT)
                             .arg(CAROOT_DEF_EMAILADDRESS, CAROOT_DEF_COMMONNAME);
@@ -356,7 +358,7 @@ bool CertificateManager::genCertificateOpenssl(int type, const QString &outputDi
                 CAROOT_PEM_PUBLICKEY(outputDir, CAROOT_DEF_CANAME)))
             return false;
 
-        if (!m_openSSLHelper->opensslGenCertCA(validDays, subjectDN,
+        if (!m_openSSLHelper->opensslGenSelfCert(validDays, subjectDN,
                 CAROOT_PEM_PRIVATEKEY(outputDir, CAROOT_DEF_CANAME),
                 CAROOT_PEM_CERT(outputDir, CAROOT_DEF_CANAME),
                 hashAlgo))
@@ -407,10 +409,9 @@ bool CertificateManager::genCertificateOpenssl(int type, const QString &outputDi
 bool CertificateManager::genCertificate(int type, const QString &outputDir)
 {
 #if (USE_OPENSSL_TOOL_HANDLER > 0)
-    return genCertificateOpenssl(type, outputDir);
-
+    //return genCertificateOpenssl(type, outputDir);
+    ;
 #else
-
     QString country = ui->countryLineEdit->text();
     QString stateProvince = ui->stateProvinceLineEdit->text();
     QString locality = ui->localityLineEdit->text();
@@ -418,64 +419,168 @@ bool CertificateManager::genCertificate(int type, const QString &outputDir)
     QString organizationUnit = ui->organizationUnitLineEdit->text();
     QString commonName = ui->commonLineEdit->text();
     QString emailAddress = ui->emailAddressLineEdit->text();
-    QString subjectDN = tr("/C=%1/ST=%2/L=%3/O=%4/OU=%5/CN=%6")
+    QString subjectDN = tr("/C=%1/ST=%2/L=%3/O=%4/OU=%5/emailAddress=%6/CN=%7")
         .arg(country, stateProvince, locality, organization)
-        .arg(organizationUnit, commonName);
-    if (CERT_EndEntity == type)
-        subjectDN.append(tr("/E=%1").arg(emailAddress));
+        .arg(organizationUnit, emailAddress, commonName);
 
-    //int keySize = ui->rsaKeyLengthComboBox->currentData().toInt();
+    QString keyAlgo = ui->keyTypeComboBox->currentData().toString();
+    QString hashAlgo = ui->hashAlgoComboBox->currentData().toString();
+    int validDays = ui->validDaysSpinBox->value();
 
-    bool chainRet = false; // 证书链的生成结果
-    bool pfxRet = false;   // PFX文件的生成结果
+    int keySize = 0;
+    if (keyAlgo.contains("rsa"))
+        keySize = ui->rsaKeyLengthComboBox->currentData().toInt();
+    else if (keyAlgo.contains("ec"))
+        keySize = ui->eccCurveComboBox->currentData().toInt();
+
+    bool withChainPfx = false;  // 是否带上证书链和PFX文件的生成信息
+    bool chainRet = false;      // 证书链的生成结果
+    bool pfxRet = false;        // PFX文件的生成结果
     QSslCertificate sslCert;
-    QPair<QSslKey, QSslKey> keyPair;
+    QPair<QSslKey, QSslKey> keyPair = m_openSSLHelper->genKeyPair(keyAlgo, keySize);
 
-    qDebug() << "type" << type << "subjectDN" << subjectDN;
-    keyPair = m_openSSLHelper->generateRSAKeyPair(2048);
+    QSslKey publicKey = keyPair.first;
     QSslKey privateKey = keyPair.second;
-    if (keyPair.first.isNull() || privateKey.isNull())
+    if (publicKey.isNull() || privateKey.isNull()) {
+        qCritical() << "publicKey.isNull() || privateKey.isNull():" << m_openSSLHelper->lastErrors();
         return false;
+    }
 
+    qDebug() << "publicKey" << publicKey.toPem().size() << publicKey.toPem().left(64);
+    qDebug() << "privateKey" << privateKey.toPem().size() << privateKey.toPem().left(64);
+    qDebug() << "type" << type 
+             << "keyAlgo" << keyAlgo
+             << "keySize" << keySize
+             << "validDays" << validDays 
+             << "subjectDN" << subjectDN;
     switch (type) {
     case CERT_EndEntity: { // 终端证书
-        QByteArray csrData = m_openSSLHelper->makeCertificateRequest(privateKey, subjectDN);
-        if (!csrData.isEmpty()) {
-            sslCert = m_openSSLHelper->signCertificateRequest(csrData,
-                                            m_rootCACert, 
-                                            m_rootCAKeyPair.second, /* CA 私钥 */
-                                            365);
+        QVariantMap extensions = {
+            {"basicConstraints", "critical,CA:FALSE"},
+            {"keyUsage", "digitalSignature,keyEncipherment"},
+            {"extendedKeyUsage", "serverAuth,clientAuth"},
+            {"subjectAltName", "DNS:example.com,DNS:example1.com,IP:172.16.90.86,IP:127.0.0.1"},
+            {"subjectKeyIdentifier", "hash"},
+        };
+
+        QString csrPem = m_openSSLHelper->genCSR(subjectDN, privateKey, extensions);
+        if (csrPem.isEmpty()) {
+            qCritical() << "csrPem.isEmpty():" << m_openSSLHelper->lastErrors();
+            return false;
         }
-        if (!sslCert.isNull()) {
-            saveCertificateFiles(keyPair, csrData, sslCert, 
-                outputDir, commonName);
+
+        extensions.insert("authorityKeyIdentifier", "keyid"); // 必须指向签发CA
+        extensions.insert("crlDistributionPoints", "URI:http://example.com/ee.crl"); // 终端证书的CRL（推荐）
+        //extensions.insert("OCSP", "URI:http://ocsp.example.com"); // OCSP响应地址（优于CRL）
+        if (m_interCACert.isNull()) {
+            qWarning() << "interCACert is null, use rootCACert Sign.";
+            sslCert = m_openSSLHelper->signCSR(validDays, csrPem,
+                                            m_rootCACert,
+                                            m_rootCAKeyPair.second,
+                                            extensions, hashAlgo);
+        } else {
+            sslCert = m_openSSLHelper->signCSR(validDays, csrPem,
+                                            m_interCACert,
+                                            m_interCAKeyPair.second,
+                                            extensions, hashAlgo);
+        }
+        if (sslCert.isNull()) {
+            qCritical() << "sslCert.isNull():" << m_openSSLHelper->lastErrors();
+            return false;
+        }
+
+        // 保存证书信息到文件
+        saveToFile(publicKey.toPem(), tr("%1/%2.pub.pem").arg(outputDir, commonName));
+        saveToFile(privateKey.toPem(), tr("%1/%2.key.pem").arg(outputDir, commonName));
+        saveToFile(csrPem.toUtf8(), tr("%1/%2.csr.pem").arg(outputDir, commonName));
+        saveToFile(sslCert.toPem(), tr("%1/%2.crt.pem").arg(outputDir, commonName));
+        saveToFile(sslCert.toDer(), tr("%1/%2.crt.der").arg(outputDir, commonName));
+
+        withChainPfx = true;
+        // 生成证书链
+        QString chainPem = m_openSSLHelper->genChain(m_interCACert, m_rootCACert);
+        if (!chainPem.isEmpty()) {
+            // 证书链 转 P7B 格式
+            QByteArray p7b = m_openSSLHelper->toP7b(chainPem);
+            saveToFile(p7b, CHAIN_P7B_CERT(outputDir));
+        }
+        chainRet = !chainPem.isEmpty();
+
+        if (!chainPem.isEmpty()) { // 生成PFX文件
+            QByteArray pfx = m_openSSLHelper->toPfx(sslCert, keyPair.second, chainPem);
+            saveToFile(pfx, FULL_BUNDLE_PFX(outputDir));
+
+            pfxRet = !pfx.isEmpty();
         }
         break;
     }
     case CERT_IntermediateCA: { // 二级根证书
-        break;
-    }
-    case CERT_RootCACustom: // 一级根证书(Custom)
-        sslCert = m_openSSLHelper->createSelfSignedCA(privateKey, subjectDN, 365);
+        QVariantMap extensions = {
+            {"basicConstraints", "critical,CA:TRUE,pathlen:0"},
+            {"keyUsage", "critical,keyCertSign,cRLSign"},
+            {"subjectKeyIdentifier", "hash"},
+        };
+        QString csrPem = m_openSSLHelper->genCSR(subjectDN, privateKey, extensions);
+        if (csrPem.isEmpty()) {
+            qCritical() << "csrPem.isEmpty():" << m_openSSLHelper->lastErrors();
+            return false;
+        }
+
+        extensions.insert("authorityKeyIdentifier", "keyid:always,issuer:always"); // 必须指向根CA的subjectKeyIdentifier
+        extensions.insert("crlDistributionPoints", "URI:http://example.com/intermediate.crl"); // 中间CA的CRL分发点（推荐）
+        //extensions.insert("certificatePolicies", "1.2.3.4"); // 证书策略OID
+        sslCert = m_openSSLHelper->signCSR(validDays, csrPem,
+                                        m_rootCACert,
+                                        m_rootCAKeyPair.second,
+                                        extensions, hashAlgo);
+        if (sslCert.isNull()) {
+            qCritical() << "sslCert.isNull():" << m_openSSLHelper->lastErrors();
+            return false;
+        }
+
+        // 保存证书信息到文件
+        saveToFile(publicKey.toPem(), CAINTER_PEM_PUBLICKEY(outputDir));
+        saveToFile(privateKey.toPem(), CAINTER_PEM_PRIVATEKEY(outputDir));
+        saveToFile(csrPem.toUtf8(), CAINTER_PEM_CSR(outputDir));
+        saveToFile(sslCert.toPem(), CAINTER_PEM_CERT(outputDir));
+        saveToFile(sslCert.toDer(), CAINTER_DER_CERT(outputDir));
+
+        // 更新二级根证书
         if (!sslCert.isNull()) {
-            m_rootCAKeyPair = keyPair;
-            m_rootCACert = sslCert;
-            saveCertificateCAFiles(m_rootCAKeyPair, m_rootCACert, 
-                outputDir, CAROOT_CUS_CANAME);
+            m_interCACert = sslCert;
+            m_interCAKeyPair = keyPair;
         }
         break;
-    case CERT_RootCACetXiyuan: { // 一级根证书(CetXiyuan)
-        QString subjectDN = tr("/C=%1/ST=%2/L=%3/O=%4/OU=%5/CN=%6")
+    }
+    case CERT_RootCACustom:
+    case CERT_RootCACetXiyuan: { // 一级根证书
+        QString caname;
+        if (CERT_RootCACetXiyuan == type) {
+            subjectDN = tr("/C=%1/ST=%2/L=%3/O=%4/OU=%5/emailAddress=%6/CN=%7")
                             .arg(CAROOT_DEF_COUNTRY, CAROOT_DEF_STATE, CAROOT_DEF_LOCALITY)
                             .arg(CAROOT_DEF_ORGANIZATION, CAROOT_DEF_ORGANIZATIONUNIT)
-                            .arg(CAROOT_DEF_COMMONNAME);
+                            .arg(CAROOT_DEF_EMAILADDRESS, CAROOT_DEF_COMMONNAME);
+            caname = CAROOT_DEF_CANAME;
+        } else {
+            caname = CAROOT_CUS_CANAME;
+        }
 
-        sslCert = m_openSSLHelper->createSelfSignedCA(privateKey, subjectDN, CAROOT_DEF_DAYS);
+        sslCert = m_openSSLHelper->genSelfCert(validDays, subjectDN, privateKey, hashAlgo);
+        if (sslCert.isNull()) {
+            qCritical() << "sslCert.isNull():" << m_openSSLHelper->lastErrors();
+            return false;
+        }
+
+        // 保存证书信息到文件
+        saveToFile(publicKey.toPem(), CAROOT_PEM_PUBLICKEY(outputDir, caname));
+        saveToFile(privateKey.toPem(), CAROOT_PEM_PRIVATEKEY(outputDir, caname));
+        saveToFile(sslCert.toPem(), CAROOT_PEM_CERT(outputDir, caname));
+        saveToFile(sslCert.toDer(), CAROOT_DER_CERT(outputDir, caname));
+
+        // 更新一级根证书
         if (!sslCert.isNull()) {
-            m_rootCAKeyPair = keyPair;
             m_rootCACert = sslCert;
-            saveCertificateCAFiles(m_rootCAKeyPair, m_rootCACert, 
-                outputDir, CAROOT_DEF_CANAME);
+            m_rootCAKeyPair = keyPair;
         }
         break;
     }
@@ -483,29 +588,30 @@ bool CertificateManager::genCertificate(int type, const QString &outputDir)
     }
 
     if (!sslCert.isNull()) {
-        QString chain = tr("证书链生成结果：%1\n证书链=一级根证书+二级根证书\n")
-            .arg(chainRet? "成功" : "失败");
-        if (chainRet) {
-            chain.append(tr("证书链: %1\n%2\n").arg(CHAIN_PEM_CERT(outputDir), 
-                CHAIN_P7B_CERT(outputDir)));
-        }
-        QString pfx = tr("PFX文件生成结果：%1\nPFX文件=终端证书+终端私钥+证书链\n")
-            .arg(pfxRet? "成功" : "失败");
-        if (pfxRet) {
-            pfx.append(tr("PFX文件: %1\n").arg(FULL_BUNDLE_PFX(outputDir)));
+        QString chain, pfx;
+        if (withChainPfx) {
+            chain = tr("证书链生成结果：%1\n证书链=一级根证书+二级根证书\n")
+                .arg(chainRet? "成功" : "失败");
+            if (chainRet) {
+                chain.append(tr("证书链: %1\n%2\n").arg(CHAIN_PEM_CERT(outputDir), 
+                    CHAIN_P7B_CERT(outputDir)));
+            }
+            pfx = tr("PFX文件生成结果：%1\nPFX文件=终端证书+终端私钥+证书链\n")
+                .arg(pfxRet? "成功" : "失败");
+            if (pfxRet) {
+                pfx.append(tr("PFX文件: %1\n").arg(FULL_BUNDLE_PFX(outputDir)));
+            }
         }
 
         QMessageBox::information(this, tr("提示"), 
-            tr("证书生成成功\n证书：%1\n\n%2\n%3\n").arg(commonName, chain, pfx), 
+            tr("证书生成成功\n证书：%1\t\n\n%2\n%3\n").arg(commonName, chain, pfx), 
                 QMessageBox::Ok);
     } else {
         QMessageBox::critical(this, tr("错误"), 
             tr("证书生成失败(%1)！\t").arg(m_openSSLHelper->lastErrors()));
-
     }
 
     return !sslCert.isNull();
-
 #endif
 }
 
@@ -541,7 +647,7 @@ void CertificateManager::saveCertificateFiles(QPair<QSslKey, QSslKey> keyPair,
     m_openSSLHelper->savePrivateKey(privateKey, tr("%1/%2-PrivateKey.pem").arg(outputDir, commonName));
 
     // DER 格式(二进制)
-    saveToFile(m_openSSLHelper->toDerCSR(csrData), tr("%1/%2-CSR.der").arg(outputDir, commonName));
+    saveToFile(m_openSSLHelper->toDer(csrData), tr("%1/%2-CSR.der").arg(outputDir, commonName));
     saveToFile(sslCert.toDer(), tr("%1/%2.cer").arg(outputDir, commonName));
     saveToFile(publicKey.toDer(), tr("%1/%2-PublicKey.der").arg(outputDir, commonName));
     saveToFile(privateKey.toDer(), tr("%1/%2-PrivateKey.der").arg(outputDir, commonName));

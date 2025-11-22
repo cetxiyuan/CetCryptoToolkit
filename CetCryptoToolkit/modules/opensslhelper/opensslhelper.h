@@ -27,34 +27,53 @@ public:
     static void initOpenSSL();
     static void cleanupOpenSSL();
 
-    // 密钥生成
-    QPair<QSslKey, QSslKey> generateRSAKeyPair(int bits = 2048);
-    QPair<QSslKey, QSslKey> generateECCKeyPair(int nid = NID_X9_62_prime256v1);
+    // 密钥生成 QPair<公钥, 私钥>
+    QPair<QSslKey, QSslKey> genKeyPair(const QString &algorithm, 
+                                     int keySize = 2048, 
+                                     const QString &passphrase = "");
 
-    // 证书操作
-    QSslCertificate createSelfSignedCA(const QSslKey &privateKey, 
-                                                      const QString &subjectDN,
-                                                      int validityDays);
+    // 生成自签证书
+    QSslCertificate genSelfCert(int validDays,
+                       const QString &subjectDN,
+                       const QSslKey &privateKey,
+                       const QString &hashAlgo = "-sha256",
+                       const QString &passphrase = "");
+    // 生成证书请求
+    QString genCSR(const QString &subjectDN, 
+                        const QSslKey &privateKey,
+                        const QVariantMap &extensions = {},
+                        const QString &passphrase = "");
+    // 签名证书请求
+    QSslCertificate signCSR(int validDays,
+                        const QString &csrPem,
+                        const QSslCertificate &caCert,
+                        const QSslKey &caPrivateKey,
+                        const QVariantMap &extensions = {},
+                        const QString &hashAlgo = "-sha256",
+                        const QString &passphrase = "");
 
-    QByteArray makeCertificateRequest(const QSslKey &privateKey,
-                           const QString &subjectDN);
-    QSslCertificate signCertificateRequest(const QByteArray &csrData,
-                                        const QSslCertificate &caCert,
-                                        const QSslKey &caPrivateKey,
-                                        int validDays);
+    // [证书链=一级根证书+二级根证书]
+    QString genChain(const QSslCertificate &interCACert, 
+                        const QSslCertificate &rootCACert);
+    QByteArray toP7b(const QString &chainPem);
 
-    QByteArray toDerCSR(const QByteArray &pemCsr);
+    // [PFX文件=证书链+终端私钥+终端证书] [密码=pfxpassword]
+    QByteArray toPfx(const QSslCertificate &cert, 
+                const QSslKey &privateKey,
+                const QString &chainPem,
+                const QString &passphrase = "");
 
+    QByteArray toDer(const QString &pemData);
 
     // 签名与验证
-    QByteArray signData(const QByteArray &data,
-                       const QSslKey &privateKey,
-                       const EVP_MD *md = EVP_sha256());
+    QByteArray signData(const QByteArray &data, 
+                        const QSslKey &privateKey,
+                        const QString &hashAlgo = "-sha256");
 
-    bool verifySignature(const QByteArray &data,
+    bool verifySignature(const QByteArray &data, 
                         const QByteArray &signature,
-                        const QSslKey &publicKey,
-                        const EVP_MD *md = EVP_sha256());
+                        const QSslKey &publicKey, 
+                        const QString &hashAlgo = "-sha256");
 
     // 加密解密
     QByteArray encrypt(const QByteArray &data,
@@ -83,13 +102,18 @@ public:
     void clearErrors();
     void appendError(const QString &error);
 
+private:
+    static int callbackPassword(char *buf, int size, int rwflag, void *userdata);
+    static X509 *qcertToX509(const QSslCertificate &cert);
+    static EVP_PKEY *qsslkeyToEVP(const QSslKey &key);
+
 public:
     bool opensslGenKeyPair(const QString &algorithm, // "RSA"/"EC"
                         int keySize, // RSA:2048/3072/4096, EC:256/384/521
                         const QString &privKeyPath,
                         const QString &pubKeyPath = "",
                         const QString &passphrase = "");
-    bool opensslGenCertCA(int validDays,
+    bool opensslGenSelfCert(int validDays,
                        const QString &subjectDN,
                        const QString &keyPath,
                        const QString &outPath,
@@ -123,14 +147,13 @@ public:
                         const QString &passphrase = "");
     bool opensslToDer(const QString &pemPath, const QString &outPath);
     bool opensslTool(const QString &program, const QStringList &arguments);
+    bool opensslTest(void);
 
 private:
-    X509 *createCertificateTemplate(const QString &subject, int validDays);
-    bool addExtensions(X509 *cert, const QVariantMap &extensions);
-    QPair<QSslKey, QSslKey> getSslKeyPair(EVP_PKEY *pkey, QSsl::KeyAlgorithm algo);
-    X509_NAME *parseSubjectName(const QString &subjectDN);
-
-    bool opensslTest(void);
+    X509_NAME *parseSubjectDN(const QString &subjectDN);
+    const EVP_MD *getHashAlgorithm(const QString &algo);
+    bool addExtensions(X509 *ca_cert, X509 *cert, X509_REQ *req, const QVariantMap &extensions);
+    QString getOpenSSLError();
 
     QList<QString> m_errors;
 };

@@ -5,11 +5,11 @@
 
 #include <QDialog>
 
-#define USE_OPENSSL_TOOL_HANDLER     (1)
+#define USE_OPENSSL_TOOL_HANDLER     (0)
 
-#define CAINTER_DEF_COMMONNAME      "Intermediate CA Signing Authority By CetXiyuan"
-#define CAROOT_CUS_COMMONNAME       "Root CA Signing Authority By Custom"
-#define CAROOT_DEF_COMMONNAME       "Root CA Signing Authority By CetXiyuan"  // 域名/服务器名
+#define CAINTER_DEF_COMMONNAME      "CetXiyuan Intermediate CA Signing Authority"
+#define CAROOT_CUS_COMMONNAME       "CetXiyuan Custom Root CA Signing Authority"
+#define CAROOT_DEF_COMMONNAME       "CetXiyuan Root CA Signing Authority"  // 域名/服务器名
 #define CAROOT_DEF_DIR  QCoreApplication::applicationDirPath() + "/certs"
 
 
