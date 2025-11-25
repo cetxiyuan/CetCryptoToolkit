@@ -10,7 +10,7 @@
 #define CAINTER_DEF_COMMONNAME      "CetXiyuan Intermediate CA Signing Authority"
 #define CAROOT_CUS_COMMONNAME       "CetXiyuan Custom Root CA Signing Authority"
 #define CAROOT_DEF_COMMONNAME       "CetXiyuan Root CA Signing Authority"  // 域名/服务器名
-#define CAROOT_DEF_DIR  QCoreApplication::applicationDirPath() + "/certs"
+#define CAROOT_DEF_DIR              QCoreApplication::applicationDirPath() + "/dir-certs"
 
 
 namespace Ui {
@@ -32,8 +32,15 @@ public:
 
     explicit CertificateManager(OpenSSLHelper *openSSLHelper, QWidget *parent = nullptr);
     ~CertificateManager();
-    bool genCertificateOpenssl(int type, const QString &outputDir);
     bool genCertificate(int type, const QString &outputDir);
+    // 采用 openssl 工具生成证书的版本
+    QSslCertificate genCertificateOpenssl(int type, const QString &outputDir, 
+                            const QString &commonName, const QString &subjectDN,
+                            QString &extMessage);
+    // 采用 openssl 代码生成证书的版本
+    QSslCertificate genCertificateCode(int type, const QString &outputDir, 
+                            const QString &commonName, const QString &subjectDN,
+                            QString &extMessage);
     bool saveToFile(const QByteArray &data, const QString &filePath);
     void saveCertificateFiles(QPair<QSslKey, QSslKey> keyPair, 
                     const QByteArray &csrData, const QSslCertificate &sslCert,

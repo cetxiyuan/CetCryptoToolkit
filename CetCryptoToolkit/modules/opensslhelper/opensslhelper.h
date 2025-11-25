@@ -20,6 +20,13 @@ class OpenSSLHelper : public QObject
 {
     Q_OBJECT
 public:
+    enum AesMode {
+        AES_ECB,    // 电子密码本（不推荐）
+        AES_CBC,    // 密码分组链接
+        AES_GCM,    // 伽罗瓦计数器模式（认证加密）
+        AES_CTR     // 计数器模式
+    };
+
     explicit OpenSSLHelper(QObject *parent = nullptr);
     ~OpenSSLHelper();
 
@@ -29,7 +36,7 @@ public:
 
     // 密钥生成 QPair<公钥, 私钥>
     QPair<QSslKey, QSslKey> genKeyPair(const QString &algorithm, 
-                                     int keySize = 2048, 
+                                     const QString &keySize = "2048-bit", 
                                      const QString &passphrase = "");
 
     // 生成自签证书
@@ -41,14 +48,14 @@ public:
     // 生成证书请求
     QString genCSR(const QString &subjectDN, 
                         const QSslKey &privateKey,
-                        const QVariantMap &extensions = {},
+                        const QStringList &extensions = {},
                         const QString &passphrase = "");
     // 签名证书请求
     QSslCertificate signCSR(int validDays,
                         const QString &csrPem,
                         const QSslCertificate &caCert,
                         const QSslKey &caPrivateKey,
-                        const QVariantMap &extensions = {},
+                        const QStringList &extensions = {},
                         const QString &hashAlgo = "-sha256",
                         const QString &passphrase = "");
 
@@ -66,23 +73,37 @@ public:
     QByteArray toDer(const QString &pemData);
 
     // 签名与验证
+    QByteArray digest(const QByteArray &data, const QString &hashAlgo);
+    QByteArray signDigest(const QByteArray &digest,
+                        const QSslKey &privateKey,
+                        const QString &hashAlgo = "-sha256");
     QByteArray signData(const QByteArray &data, 
                         const QSslKey &privateKey,
                         const QString &hashAlgo = "-sha256");
-
-    bool verifySignature(const QByteArray &data, 
+    bool signVerify(const QByteArray &data, 
                         const QByteArray &signature,
                         const QSslKey &publicKey, 
                         const QString &hashAlgo = "-sha256");
 
-    // 加密解密
-    QByteArray encrypt(const QByteArray &data,
-                      const QSslKey &publicKey,
-                      const QSslCipher &cipher);
+    // RSA/EC 公钥加密
+    static QByteArray asymmetricEncrypt(const QByteArray &data, const QSslKey &publicKey);
+    // RSA/EC 私钥解密
+    static QByteArray asymmetricDecrypt(const QByteArray &data, const QSslKey &privateKey);
 
-    QByteArray decrypt(const QByteArray &data,
-                      const QSslKey &privateKey,
-                      const QSslCipher &cipher);
+    // 加密（返回格式：GCM模式=IV+密文+Tag，其他模式=IV+密文）
+    static QByteArray aesEncrypt(const QByteArray &plaintext, 
+            const QByteArray &key, AesMode mode = AES_ECB, 
+            const QByteArray &iv = QByteArray());
+    // 解密（输入格式需与加密输出一致）
+    static QByteArray aesDecrypt(const QByteArray &ciphertext, 
+            const QByteArray &key, AesMode mode = AES_ECB);
+    // 生成CMAC（用于消息认证）
+    static QByteArray aesGenerateCMAC(const QByteArray &data, const QByteArray &key);
+    // 生成随机密钥（16/24/32字节）
+    static QByteArray aesGenerateKey(int keySize = 32);
+    // 生成随机IV（GCM推荐12字节，其他16字节）
+    static QByteArray aesGenerateIV(AesMode mode);
+
 
     // 证书管理
     static QList<QSslCertificate> loadCertificates(const QString &filePath);
@@ -96,6 +117,13 @@ public:
     static bool savePublicKey(const QSslKey &publicKey, const QString &filePath);
     static QSslKey loadPrivateKey(const QString &filePath);
     static bool savePrivateKey(const QSslKey &privateKey, const QString &filePath);
+    static QStringList supportDigestNames();
+    static QStringList supportEcCurveNames();
+    static QStringList supportRsaBitsNames();
+    static QStringList supportAesEncryptModesNames();
+    static int ecCurve(const QString &name);
+    static int rsaBits(const QString &name);
+    static AesMode aesEncryptMode(const QString &name);
 
     // 错误处理
     QString lastErrors() const;
@@ -109,7 +137,7 @@ private:
 
 public:
     bool opensslGenKeyPair(const QString &algorithm, // "RSA"/"EC"
-                        int keySize, // RSA:2048/3072/4096, EC:256/384/521
+                        const QString &keySize,     // RSA:2048/3072/4096, EC:256/384/521
                         const QString &privKeyPath,
                         const QString &pubKeyPath = "",
                         const QString &passphrase = "");
@@ -122,14 +150,14 @@ public:
     bool opensslGenCSR(const QString &subjectDN, 
                         const QString &keyPath, 
                         const QString &outPath,
-                        const QStringList &addexts,
+                        const QStringList &extensions,
                         const QString &passphrase = "");
     bool opensslSignCSR(int validDays,
                         const QString &csrPath,
                         const QString &caPath,
                         const QString &caKeyPath,
                         const QString &outPath,
-                        const QStringList &addexts,
+                        const QStringList &extensions,
                         const QString &hashAlgo = "-sha256",
                         const QString &passphrase = "");
 
@@ -151,9 +179,13 @@ public:
 
 private:
     X509_NAME *parseSubjectDN(const QString &subjectDN);
-    const EVP_MD *getHashAlgorithm(const QString &algo);
-    bool addExtensions(X509 *ca_cert, X509 *cert, X509_REQ *req, const QVariantMap &extensions);
+    bool addExtensions(X509 *ca_cert, X509 *cert, X509_REQ *req, 
+        const QStringList &extensions);
     QString getOpenSSLError();
+
+private:
+    static const EVP_CIPHER *aesCipher(AesMode mode, const QByteArray &key);
+    static const EVP_MD *digestAlgorithm(const QString &name);
 
     QList<QString> m_errors;
 };

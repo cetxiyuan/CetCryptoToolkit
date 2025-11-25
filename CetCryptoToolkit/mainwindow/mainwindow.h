@@ -34,6 +34,43 @@ private slots:
 
     void on_genCertPushButton_clicked();
 
+    void on_aeaPrivateToolButton_clicked();
+
+    void on_aeaPublicToolButton_clicked();
+
+    void on_aeaDataToolButton_clicked();
+
+    void on_aeaEncryptToolButton_clicked();
+
+    void on_aeaDecryptToolButton_clicked();
+
+    void on_aeaEncryptPushButton_clicked();
+
+    void on_aeaDecryptPushButton_clicked();
+
+    void on_aeaDigestPushButton_clicked();
+
+    void on_aeaSignPushButton_clicked();
+
+    void on_aeaVerifySignPushButton_clicked();
+
+    void on_seaDataToolButton_clicked();
+
+    void on_seaEncryptToolButton_clicked();
+
+    void on_seaDecryptToolButton_clicked();
+
+    void on_seaEncryptPushButton_clicked();
+
+    void on_seaDecryptPushButton_clicked();
+
+    void on_seaEncryptModeComboBox_currentTextChanged(const QString &arg1);
+
+    void on_seaKeyLineEdit_textChanged(const QString &arg1);
+
+private:
+    QByteArray getData(bool isFile, const QString &fileName, bool inBase64 = false);
+
 private:
     QObject *loadPlugin(const QString &dllName);
     void initFeaturesPlugin();
@@ -48,5 +85,9 @@ private:
     CetLicenseInterface *m_cetLicenseInterface;
     CetUpdateInterface *m_cetUpdateInterface;
     CetProgressInterface *m_cetProgressInterface;
+
+    QSslKey m_privateKey;   // 非对称加密算法的私钥
+    QSslKey m_publicKey;    // 非对称加密算法的公钥
+
 };
 #endif // MAINWINDOW_H
