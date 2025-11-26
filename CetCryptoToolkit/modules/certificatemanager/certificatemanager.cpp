@@ -106,11 +106,9 @@ CertificateManager::CertificateManager(OpenSSLHelper *openSSLHelper, QWidget *pa
     ui->commonLineEdit->setText("example.com");
     ui->emailAddressLineEdit->setText("admin@example.com");
 
-    ui->keyTypeComboBox->addItem("RSA", "rsa");
-    ui->keyTypeComboBox->addItem("ECC", "ec");
-
-    ui->rsaKeyLengthComboBox->addItems(OpenSSLHelper::supportRsaBitsNames());
-    ui->eccCurveComboBox->addItems(OpenSSLHelper::supportEcCurveNames());
+    ui->keyTypeComboBox->addItems(OpenSSLHelper::supportKeyAlgorithmNames());
+    ui->rsaKeyLengthComboBox->addItems(OpenSSLHelper::supportRSABitsNames());
+    ui->eccCurveComboBox->addItems(OpenSSLHelper::supportECCurveNames());
     ui->hashAlgoComboBox->addItems(OpenSSLHelper::supportDigestNames());
     ui->hashAlgoComboBox->setCurrentIndex(3);
 

@@ -11,7 +11,7 @@
 /* 版本号定义 */
 #define VER_MAJOR               1       /* 主版本号 */
 #define VER_MINOR               0       /* 次版本号 */
-#define VER_MICRO               3       /* 小版本号 */
+#define VER_MICRO               4       /* 小版本号 */
 
 /* 正式版发布日期 
  * (CXYQK5152.CCTK100.EB17) 的含义：
@@ -19,7 +19,7 @@
     CCTK100: CetCryptoToolkit 100
     EB17: E(24年, A-20年)B(11月 A-10月 B-11月 C-12月)17(06日 17-11(月)=06)
 */
-#define RELEASE_DATE            "(CXYQK5152.CCTK100.FB36)" // "(2025-11-25)"
+#define RELEASE_DATE            "(1.1.1t)(CXYQK5152.CCTK100.FB37)" // "(2025-11-26)"
 
 /* 补丁包号(月+日+序号) */
 #define PATCH_PACKET            "2051"

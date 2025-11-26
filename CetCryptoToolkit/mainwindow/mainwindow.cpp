@@ -71,7 +71,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 对称加密算法相关
     ui->seaAlgoComboBox->addItem("AES");
-    ui->seaEncryptModeComboBox->addItems(OpenSSLHelper::supportAesEncryptModesNames());
+    ui->seaAlgoComboBox->addItem("SM4");
+    ui->seaEncryptModeComboBox->addItems(OpenSSLHelper::supportAESModesNames());
     ui->seaKeyLineEdit->setInputMask("HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH");
     ui->seaIvLineEdit->setInputMask("HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH");
 
@@ -461,7 +462,7 @@ void MainWindow::on_seaEncryptPushButton_clicked()
     bool isFile = ui->seaDataFileCheckBox->isChecked();
     bool inBase64 = ui->seaBase64CheckBox->isChecked();
     OpenSSLHelper::AesMode mode 
-        = OpenSSLHelper::aesEncryptMode(ui->seaEncryptModeComboBox->currentText());
+        = OpenSSLHelper::aesModeFromName(ui->seaEncryptModeComboBox->currentText());
     QByteArray data = getData(isFile, ui->seaDataLineEdit->text(), false);
     QByteArray iv = QByteArray::fromHex(ui->seaIvLineEdit->text().toUtf8());
     QByteArray key = QByteArray::fromHex(ui->seaKeyLineEdit->text().toUtf8());
@@ -497,7 +498,7 @@ void MainWindow::on_seaDecryptPushButton_clicked()
     bool isFile = ui->seaDataFileCheckBox->isChecked();
     bool inBase64 = ui->seaBase64CheckBox->isChecked();
     OpenSSLHelper::AesMode mode 
-        = OpenSSLHelper::aesEncryptMode(ui->seaEncryptModeComboBox->currentText());
+        = OpenSSLHelper::aesModeFromName(ui->seaEncryptModeComboBox->currentText());
     QByteArray key = QByteArray::fromHex(ui->seaKeyLineEdit->text().toUtf8());
     QByteArray data = getData(isFile, ui->seaEncryptLineEdit->text(), inBase64);
     qDebug() << "key" << key.toHex() << "data" << data.toHex();

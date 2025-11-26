@@ -117,13 +117,16 @@ public:
     static bool savePublicKey(const QSslKey &publicKey, const QString &filePath);
     static QSslKey loadPrivateKey(const QString &filePath);
     static bool savePrivateKey(const QSslKey &privateKey, const QString &filePath);
+
+    static QStringList supportKeyAlgorithmNames();
     static QStringList supportDigestNames();
-    static QStringList supportEcCurveNames();
-    static QStringList supportRsaBitsNames();
-    static QStringList supportAesEncryptModesNames();
-    static int ecCurve(const QString &name);
-    static int rsaBits(const QString &name);
-    static AesMode aesEncryptMode(const QString &name);
+    static QStringList supportECCurveNames();
+    static QStringList supportRSABitsNames();
+    static QStringList supportAESModesNames();
+    static int keyAlgorithmFromName(const QString &name);
+    static int ecCurveFromName(const QString &name);
+    static int rsaBitsFromName(const QString &name);
+    static AesMode aesModeFromName(const QString &name);
 
     // 错误处理
     QString lastErrors() const;
@@ -185,7 +188,7 @@ private:
 
 private:
     static const EVP_CIPHER *aesCipher(AesMode mode, const QByteArray &key);
-    static const EVP_MD *digestAlgorithm(const QString &name);
+    static const EVP_MD *digestFromName(const QString &name);
 
     QList<QString> m_errors;
 };

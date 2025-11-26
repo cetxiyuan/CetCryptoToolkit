@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>600</height>
+    <height>613</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -266,7 +266,7 @@
          <item>
           <widget class="QLabel" name="label">
            <property name="text">
-            <string>CET证书类型：</string>
+            <string>证书类型：</string>
            </property>
           </widget>
          </item>

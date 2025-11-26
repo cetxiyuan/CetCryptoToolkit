@@ -28,6 +28,11 @@
 
 #define SHELL_EXE "powershell"
 
+static QList<QPair<QString, int>> supportedKeyAlgorithms = {
+    {"RSA",         EVP_PKEY_RSA},
+    {"ECC",         EVP_PKEY_EC},
+};
+
 static QList<QPair<QString, const EVP_MD *>> supportedDigests = {
     {"MD5",         EVP_md5()},
     {"SHA1",        EVP_sha1()},
@@ -39,6 +44,7 @@ static QList<QPair<QString, const EVP_MD *>> supportedDigests = {
     {"SHA3-256",    EVP_sha3_256()},
     {"SHA3-384",    EVP_sha3_384()},
     {"SHA3-512",    EVP_sha3_512()},
+    {"SM3",         EVP_sm3()},
 };
 
 static QList<QPair<QString, int>> supportedEcCurves = {
@@ -57,7 +63,7 @@ static QList<QPair<QString, int>> supportedRsaBits = {
     {"8192-bit",        8192},
 };
 
-static QList<QPair<QString, OpenSSLHelper::AesMode>> supportedAesEncryptModes = {
+static QList<QPair<QString, OpenSSLHelper::AesMode>> supportedAesModes = {
     {"ECB",             OpenSSLHelper::AES_ECB},
     {"CBC",             OpenSSLHelper::AES_CBC},
     {"GCM",             OpenSSLHelper::AES_GCM},
@@ -123,15 +129,23 @@ QPair<QSslKey, QSslKey> OpenSSLHelper::genKeyPair(const QString &algorithm,
     long privLen = 0;
     QPair<QSslKey, QSslKey> keyPair;
     bool success = false;
-    int pkey_id = EVP_PKEY_NONE;
+    int pkeyid = EVP_PKEY_NONE;
     QSsl::KeyAlgorithm algoType = QSsl::Rsa;
     QByteArray pass = passphrase.toUtf8();
-    int bits = rsaBits(keySize);
+
+    // 检查 SM2 曲线是否支持
+    EC_KEY *ec_key = EC_KEY_new_by_curve_name(NID_sm2);
+    if (!ec_key) {
+        qWarning("SM2 curve not supported! Recompile OpenSSL with enable-sm2.");
+    } else {
+        EC_KEY_free(ec_key);
+    }
 
     // 1. 初始化密钥生成上下文
-    pkey_id = algorithm.compare("rsa", Qt::CaseInsensitive) == 0 ? 
-             EVP_PKEY_RSA : EVP_PKEY_EC;
-    ctx = EVP_PKEY_CTX_new_id(pkey_id, nullptr);
+    qDebug() << "algorithm" << algorithm << "keySize" << keySize << "passphrase" << passphrase;
+    pkeyid = keyAlgorithmFromName(algorithm);
+    qDebug() << "pkeyid" << pkeyid; 
+    ctx = EVP_PKEY_CTX_new_id(pkeyid, nullptr);
     if (!ctx) {
         qWarning("Failed to create key generation context");
         goto cleanup;
@@ -142,17 +156,28 @@ QPair<QSslKey, QSslKey> OpenSSLHelper::genKeyPair(const QString &algorithm,
     }
 
     // 2. 设置密钥参数
-    if (pkey_id == EVP_PKEY_RSA) {
-        if (bits < 512 || bits > 16384) {
-            qWarning("Invalid RSA key size (512-16384)");
-            goto cleanup;
+    if (EVP_PKEY_RSA == pkeyid) {
+        int bits = rsaBitsFromName(keySize);
+        if (bits != 2048 && bits != 3072 && bits != 4096) {
+            qWarning("Invalid RSA key size, defaulting to 2048");
+            bits = 2048;
         }
         if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, bits) <= 0) {
             qWarning("Failed to set RSA key length");
             goto cleanup;
         }
-    } else {
-        if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, bits) <= 0) {
+    } else if (EVP_PKEY_EC == pkeyid || EVP_PKEY_SM2 == pkeyid) {
+        int nid = NID_undef;
+        if (EVP_PKEY_SM2 == pkeyid) {
+            nid = NID_sm2;
+        } else {
+            nid = ecCurveFromName(keySize);
+        }
+        if (nid == NID_undef) {
+            qWarning("Unsupported curve: %s", qUtf8Printable(keySize));
+            goto cleanup;
+        }
+        if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, nid) <= 0) {
             qWarning("Failed to set EC curve");
             goto cleanup;
         }
@@ -216,7 +241,7 @@ QPair<QSslKey, QSslKey> OpenSSLHelper::genKeyPair(const QString &algorithm,
     }
 
     // 8. 创建QSslKey对象
-    algoType = (pkey_id == EVP_PKEY_RSA) ? QSsl::Rsa : QSsl::Ec;
+    algoType = (pkeyid == EVP_PKEY_RSA) ? QSsl::Rsa : QSsl::Ec;
     keyPair.first = QSslKey(QByteArray(pubData, pubLen), algoType, QSsl::Pem, QSsl::PublicKey, pass);
     keyPair.second = QSslKey(QByteArray(privData, privLen), algoType, QSsl::Pem, QSsl::PrivateKey, pass);
     //qWarning("privData:%.64s", privData);
@@ -334,7 +359,7 @@ QSslCertificate OpenSSLHelper::genSelfCert(int validDays,
     }
 
     // 签名证书
-    md = digestAlgorithm(hashAlgo);
+    md = digestFromName(hashAlgo);
     if (!md) {
         appendError("Unsupported hash algorithm");
         goto cleanup;
@@ -598,7 +623,7 @@ QSslCertificate OpenSSLHelper::signCSR(int validDays, const QString &csrPem,
     }
 
     // 签名证书
-    md = digestAlgorithm(hashAlgo);
+    md = digestFromName(hashAlgo);
     if (!md) {
         appendError("Unsupported hash algorithm");
         goto cleanup;
@@ -856,7 +881,7 @@ QByteArray OpenSSLHelper::digest(const QByteArray &data, const QString &hashAlgo
          return QByteArray();
 
     // 解析算法
-    const EVP_MD *md = digestAlgorithm(hashAlgo);
+    const EVP_MD *md = digestFromName(hashAlgo);
     if (!md)
         return QByteArray();
 
@@ -919,7 +944,7 @@ QByteArray OpenSSLHelper::signDigest(const QByteArray &digest,
     }
 
     // 获取哈希算法
-    md = digestAlgorithm(hashAlgo);
+    md = digestFromName(hashAlgo);
     if (!md) {
         appendError("Unsupported hash algorithm: " + hashAlgo);
         goto cleanup;
@@ -1025,7 +1050,7 @@ QByteArray OpenSSLHelper::signData(const QByteArray &data,
     }
 
     // 获取哈希算法
-    md = digestAlgorithm(hashAlgo);
+    md = digestFromName(hashAlgo);
     if (!md) {
         appendError("Unsupported hash algorithm: " + hashAlgo);
         goto cleanup;
@@ -1124,7 +1149,7 @@ bool OpenSSLHelper::signVerify(const QByteArray &data,
     }
 
     // 获取哈希算法
-    md = digestAlgorithm(hashAlgo);
+    md = digestFromName(hashAlgo);
     if (!md) {
         appendError("Unsupported hash algorithm: " + hashAlgo);
         goto cleanup;
@@ -1625,7 +1650,7 @@ bool OpenSSLHelper::opensslGenKeyPair(const QString &algorithm, // "RSA"/"EC"
     // 根据算法类型构建pkeyopt参数
     QString pkeyoptValue;
     if (algorithm.toUpper() == "RSA") {
-        int bits = rsaBits(keySize);
+        int bits = rsaBitsFromName(keySize);
         if (bits != 2048 && bits != 3072 && bits != 4096) {
             qCritical() << "Invalid RSA key size, defaulting to 2048";
             bits = 2048;
@@ -2536,7 +2561,16 @@ void OpenSSLHelper::appendError(const QString &error)
     qCritical() << "error" << error;
 }
 
-const EVP_MD *OpenSSLHelper::digestAlgorithm(const QString &name)
+int OpenSSLHelper::keyAlgorithmFromName(const QString &name)
+{
+    for (const QPair<QString, int> &pair : supportedKeyAlgorithms)
+        if (name == pair.first)
+            return pair.second;
+
+    return -1;
+}
+
+const EVP_MD *OpenSSLHelper::digestFromName(const QString &name)
 {
     for (const QPair<QString, const EVP_MD *> &pair : supportedDigests)
         if (name == pair.first)
@@ -2545,7 +2579,7 @@ const EVP_MD *OpenSSLHelper::digestAlgorithm(const QString &name)
     return nullptr;
 }
 
-int OpenSSLHelper::ecCurve(const QString &name)
+int OpenSSLHelper::ecCurveFromName(const QString &name)
 {
     for (const QPair<QString, int> &pair : supportedEcCurves)
         if (name == pair.first)
@@ -2554,7 +2588,7 @@ int OpenSSLHelper::ecCurve(const QString &name)
     return -1;
 }
 
-int OpenSSLHelper::rsaBits(const QString &name)
+int OpenSSLHelper::rsaBitsFromName(const QString &name)
 {
     for (const QPair<QString, int> &pair : supportedRsaBits)
         if (name == pair.first)
@@ -2563,13 +2597,21 @@ int OpenSSLHelper::rsaBits(const QString &name)
     return -1;
 }
 
-OpenSSLHelper::AesMode OpenSSLHelper::aesEncryptMode(const QString &name)
+OpenSSLHelper::AesMode OpenSSLHelper::aesModeFromName(const QString &name)
 {
-    for (const QPair<QString, OpenSSLHelper::AesMode> &pair : supportedAesEncryptModes)
+    for (const QPair<QString, OpenSSLHelper::AesMode> &pair : supportedAesModes)
         if (name == pair.first)
             return pair.second;
 
     return (OpenSSLHelper::AesMode)-1;
+}
+
+QStringList OpenSSLHelper::supportKeyAlgorithmNames()
+{
+    QStringList names;
+    for (const QPair<QString, int> &pair : supportedKeyAlgorithms)
+        names.append(pair.first);
+    return names;
 }
 
 QStringList OpenSSLHelper::supportDigestNames()
@@ -2580,7 +2622,7 @@ QStringList OpenSSLHelper::supportDigestNames()
     return names;
 }
 
-QStringList OpenSSLHelper::supportEcCurveNames()
+QStringList OpenSSLHelper::supportECCurveNames()
 {
     QStringList names;
     for (const QPair<QString, int> &pair : supportedEcCurves)
@@ -2588,7 +2630,7 @@ QStringList OpenSSLHelper::supportEcCurveNames()
     return names;
 }
 
-QStringList OpenSSLHelper::supportRsaBitsNames()
+QStringList OpenSSLHelper::supportRSABitsNames()
 {
     QStringList names;
     for (const QPair<QString, int> &pair : supportedRsaBits)
@@ -2596,10 +2638,10 @@ QStringList OpenSSLHelper::supportRsaBitsNames()
     return names;
 }
 
-QStringList OpenSSLHelper::supportAesEncryptModesNames()
+QStringList OpenSSLHelper::supportAESModesNames()
 {
     QStringList names;
-    for (const QPair<QString, OpenSSLHelper::AesMode> &pair : supportedAesEncryptModes)
+    for (const QPair<QString, OpenSSLHelper::AesMode> &pair : supportedAesModes)
         names.append(pair.first);
     return names;
 }
