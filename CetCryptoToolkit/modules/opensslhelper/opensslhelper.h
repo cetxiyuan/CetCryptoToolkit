@@ -20,11 +20,11 @@ class OpenSSLHelper : public QObject
 {
     Q_OBJECT
 public:
-    enum AesMode {
-        AES_ECB,    // 电子密码本（不推荐）
-        AES_CBC,    // 密码分组链接
-        AES_GCM,    // 伽罗瓦计数器模式（认证加密）
-        AES_CTR     // 计数器模式
+    enum SymMode {
+        SYM_ECB,    // 电子密码本（不推荐）
+        SYM_CBC,    // 密码分组链接
+        SYM_GCM,    // 伽罗瓦计数器模式（认证加密）
+        SYM_CTR     // 计数器模式
     };
 
     explicit OpenSSLHelper(QObject *parent = nullptr);
@@ -43,7 +43,7 @@ public:
     QSslCertificate genSelfCert(int validDays,
                        const QString &subjectDN,
                        const QSslKey &privateKey,
-                       const QString &hashAlgo = "-sha256",
+                       const QString &hashAlgo = "sha256",
                        const QString &passphrase = "");
     // 生成证书请求
     QString genCSR(const QString &subjectDN, 
@@ -56,7 +56,7 @@ public:
                         const QSslCertificate &caCert,
                         const QSslKey &caPrivateKey,
                         const QStringList &extensions = {},
-                        const QString &hashAlgo = "-sha256",
+                        const QString &hashAlgo = "sha256",
                         const QString &passphrase = "");
 
     // [证书链=一级根证书+二级根证书]
@@ -76,14 +76,17 @@ public:
     QByteArray digest(const QByteArray &data, const QString &hashAlgo);
     QByteArray signDigest(const QByteArray &digest,
                         const QSslKey &privateKey,
-                        const QString &hashAlgo = "-sha256");
+                        const QString &hashAlgo = "sha256",
+                        const QByteArray &userId = ""); // 仅SM2有
     QByteArray signData(const QByteArray &data, 
                         const QSslKey &privateKey,
-                        const QString &hashAlgo = "-sha256");
+                        const QString &hashAlgo = "sha256",
+                        const QByteArray &userId = ""); // 仅SM2有
     bool signVerify(const QByteArray &data, 
                         const QByteArray &signature,
                         const QSslKey &publicKey, 
-                        const QString &hashAlgo = "-sha256");
+                        const QString &hashAlgo = "sha256",
+                        const QByteArray &userId = ""); // 仅SM2有
 
     // RSA/EC 公钥加密
     static QByteArray asymmetricEncrypt(const QByteArray &data, const QSslKey &publicKey);
@@ -92,18 +95,29 @@ public:
 
     // 加密（返回格式：GCM模式=IV+密文+Tag，其他模式=IV+密文）
     static QByteArray aesEncrypt(const QByteArray &plaintext, 
-            const QByteArray &key, AesMode mode = AES_ECB, 
+            const QByteArray &key, SymMode mode = SYM_ECB, 
             const QByteArray &iv = QByteArray());
     // 解密（输入格式需与加密输出一致）
     static QByteArray aesDecrypt(const QByteArray &ciphertext, 
-            const QByteArray &key, AesMode mode = AES_ECB);
+            const QByteArray &key, SymMode mode = SYM_ECB);
     // 生成CMAC（用于消息认证）
-    static QByteArray aesGenerateCMAC(const QByteArray &data, const QByteArray &key);
+    static QByteArray aes128GenerateCMAC(const QByteArray &data, const QByteArray &key);
     // 生成随机密钥（16/24/32字节）
     static QByteArray aesGenerateKey(int keySize = 32);
     // 生成随机IV（GCM推荐12字节，其他16字节）
-    static QByteArray aesGenerateIV(AesMode mode);
+    static QByteArray aesGenerateIV(SymMode mode);
 
+    QByteArray sm4Encrypt(const QByteArray &plaintext,
+                            const QByteArray &key,
+                            SymMode mode,
+                            const QByteArray &iv);
+    QByteArray sm4Decrypt(const QByteArray &ciphertext,
+                            const QByteArray &key,
+                            SymMode mode,
+                            const QByteArray &iv);
+
+    QByteArray sm2PubKeyToDer(const QByteArray &rawPubKey);
+    QByteArray sm2SignToDer(const QByteArray &rawSignKey);
 
     // 证书管理
     static QList<QSslCertificate> loadCertificates(const QString &filePath);
@@ -122,11 +136,11 @@ public:
     static QStringList supportDigestNames();
     static QStringList supportECCurveNames();
     static QStringList supportRSABitsNames();
-    static QStringList supportAESModesNames();
+    static QStringList supportSymModesNames();
     static int keyAlgorithmFromName(const QString &name);
     static int ecCurveFromName(const QString &name);
     static int rsaBitsFromName(const QString &name);
-    static AesMode aesModeFromName(const QString &name);
+    static SymMode symModeFromName(const QString &name);
 
     // 错误处理
     QString lastErrors() const;
@@ -187,7 +201,7 @@ private:
     QString getOpenSSLError();
 
 private:
-    static const EVP_CIPHER *aesCipher(AesMode mode, const QByteArray &key);
+    static const EVP_CIPHER *aesCipher(SymMode mode, const QByteArray &key);
     static const EVP_MD *digestFromName(const QString &name);
 
     QList<QString> m_errors;

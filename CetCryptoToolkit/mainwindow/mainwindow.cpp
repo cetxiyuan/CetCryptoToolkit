@@ -72,7 +72,7 @@ MainWindow::MainWindow(QWidget *parent)
     // 对称加密算法相关
     ui->seaAlgoComboBox->addItem("AES");
     ui->seaAlgoComboBox->addItem("SM4");
-    ui->seaEncryptModeComboBox->addItems(OpenSSLHelper::supportAESModesNames());
+    ui->seaEncryptModeComboBox->addItems(OpenSSLHelper::supportSymModesNames());
     ui->seaKeyLineEdit->setInputMask("HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH");
     ui->seaIvLineEdit->setInputMask("HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH");
 
@@ -289,34 +289,17 @@ void MainWindow::on_aeaDataToolButton_clicked()
     }
 }
 
-
-void MainWindow::on_aeaEncryptToolButton_clicked()
-{
-    QString fileName = QFileDialog::getSaveFileName(this, tr("选择加密后输出文件"), 
-                            ui->aeaEncryptLineEdit->text(), 
-                            tr("加密数据 (*.enc *.bin);;所有文件 (*)"));
-    if (!fileName.isEmpty()) {
-        ui->aeaEncryptLineEdit->setText(fileName);
-    }
-}
-
-
-void MainWindow::on_aeaDecryptToolButton_clicked()
-{
-    QString fileName = QFileDialog::getSaveFileName(this, tr("选择解密后输出文件"), 
-                            ui->aeaDecryptLineEdit->text(), 
-                            tr("解密数据 (*.dat *.txt);;所有文件 (*)"));
-    if (!fileName.isEmpty()) {
-        ui->aeaDecryptLineEdit->setText(fileName);
-    }
-}
-
-
 void MainWindow::on_aeaEncryptPushButton_clicked()
 {
     QByteArray data = getData(ui->aeaDataFileCheckBox->isChecked(), 
         ui->aeaDataLineEdit->text(), false);
     QSslKey publicKey = m_openSSLHelper->loadPublicKey(ui->aeaPublicLineEdit->text());
+    if (publicKey.isNull())
+        publicKey = QSslKey(QByteArray::fromHex(
+            ui->aeaPublicLineEdit->text().toUtf8()), QSsl::Rsa, QSsl::Der, QSsl::PublicKey);
+    if (publicKey.isNull())
+        publicKey = QSslKey(QByteArray::fromHex(
+            ui->aeaPublicLineEdit->text().toUtf8()), QSsl::Ec, QSsl::Der, QSsl::PublicKey);
 
     QByteArray encrypt = m_openSSLHelper->asymmetricEncrypt(data, publicKey);
     qDebug() << "encrypt" << encrypt.toHex() << "publicKey" << publicKey << "data" << data;
@@ -335,6 +318,12 @@ void MainWindow::on_aeaDecryptPushButton_clicked()
     QByteArray data = getData(ui->aeaDataFileCheckBox->isChecked(), 
         ui->aeaEncryptLineEdit->text(), ui->aeaBase64CheckBox->isChecked());
     QSslKey privateKey = m_openSSLHelper->loadPrivateKey(ui->aeaPrivateLineEdit->text());
+    if (privateKey.isNull())
+        privateKey = QSslKey(QByteArray::fromHex(
+            ui->aeaPrivateLineEdit->text().toUtf8()), QSsl::Rsa, QSsl::Der);
+    if (privateKey.isNull())
+        privateKey = QSslKey(QByteArray::fromHex(
+            ui->aeaPrivateLineEdit->text().toUtf8()), QSsl::Ec, QSsl::Der);
 
     QByteArray decrypt = m_openSSLHelper->asymmetricDecrypt(data, privateKey);
     qDebug() << "decrypt" << decrypt.toHex() << "privateKey" << privateKey << "data" << data;
@@ -370,20 +359,40 @@ void MainWindow::on_aeaDigestPushButton_clicked()
     }
 }
 
+void MainWindow::on_aeaDigestComboBox_currentTextChanged(const QString &arg1)
+{
+    bool visible = arg1.contains("SM3");
+    ui->aeaUserIdLabel->setVisible(visible);
+    ui->aeaUserIdLineEdit->setVisible(visible);
+    ui->aeaUserIdIsHexCheckBox->setVisible(visible);
+}
+
 
 void MainWindow::on_aeaSignPushButton_clicked()
 {
     bool inBase64 = ui->aeaBase64CheckBox->isChecked();
     QSslKey privateKey = m_openSSLHelper->loadPrivateKey(ui->aeaPrivateLineEdit->text());
+    if (privateKey.isNull())
+        privateKey = QSslKey(QByteArray::fromHex(
+            ui->aeaPrivateLineEdit->text().toUtf8()), QSsl::Rsa, QSsl::Der);
+    if (privateKey.isNull())
+        privateKey = QSslKey(QByteArray::fromHex(
+            ui->aeaPrivateLineEdit->text().toUtf8()), QSsl::Ec, QSsl::Der);
+
+
     QString hashAlgo = ui->aeaDigestComboBox->currentText();
+    QByteArray userid = (ui->aeaUserIdIsHexCheckBox->isChecked())
+                         ? QByteArray::fromHex(ui->aeaUserIdLineEdit->text().toUtf8())
+                         : ui->aeaUserIdLineEdit->text().toUtf8();
     QByteArray data = getData(ui->aeaDataFileCheckBox->isChecked(), 
         ui->aeaDataLineEdit->text(), inBase64);
     QByteArray digest = (inBase64)
                          ? QByteArray::fromBase64(ui->aeaDigestLineEdit->text().toUtf8())
                          : QByteArray::fromHex(ui->aeaDigestLineEdit->text().toUtf8());
     QByteArray sign = (!digest.isEmpty())
-                       ? m_openSSLHelper->signDigest(digest, privateKey, hashAlgo)
-                       : m_openSSLHelper->signData(data, privateKey, hashAlgo);
+                       ? m_openSSLHelper->signDigest(digest, privateKey, hashAlgo, userid)
+                       : m_openSSLHelper->signData(data, privateKey, hashAlgo, userid);
+    //QByteArray sign = m_openSSLHelper->signData(data, privateKey, hashAlgo, userid);
 
     qDebug() << "hashAlgo" << hashAlgo << "digest" << digest.toHex()
              << "sign" << sign.toHex();
@@ -401,20 +410,31 @@ void MainWindow::on_aeaSignPushButton_clicked()
     }
 }
 
-
 void MainWindow::on_aeaVerifySignPushButton_clicked()
 {
     bool inBase64 = ui->aeaBase64CheckBox->isChecked();
-    QSslKey publicKey = m_openSSLHelper->loadPublicKey(ui->aeaPublicLineEdit->text());
+    QByteArray origin = QByteArray::fromHex(
+                ui->aeaPublicLineEdit->text().toUtf8());
+    if (ui->aeaDigestComboBox->currentText().contains("SM3"))
+        origin = m_openSSLHelper->sm2PubKeyToDer(origin);
+
+    QSslKey publicKey = QSslKey(origin, QSsl::Ec, QSsl::Der, QSsl::PublicKey);
     QString hashAlgo = ui->aeaDigestComboBox->currentText();
+    QByteArray userid = (ui->aeaUserIdIsHexCheckBox->isChecked())
+                         ? QByteArray::fromHex(ui->aeaUserIdLineEdit->text().toUtf8())
+                         : ui->aeaUserIdLineEdit->text().toUtf8();
     QByteArray data = getData(ui->aeaDataFileCheckBox->isChecked(), 
         ui->aeaDataLineEdit->text(), inBase64);
     QByteArray sign = (inBase64)
                        ? QByteArray::fromBase64(ui->aeaSignLineEdit->text().toUtf8())
                        : QByteArray::fromHex(ui->aeaSignLineEdit->text().toUtf8());
 
-    qDebug() << "data" << data << "publicKey" << publicKey;
-    bool success = m_openSSLHelper->signVerify(data, sign, publicKey, hashAlgo);
+    if (ui->aeaDigestComboBox->currentText().contains("SM3"))
+        sign = m_openSSLHelper->sm2SignToDer(sign);
+
+    qDebug() << "data" << data << "publicKey" << publicKey.toDer().toHex().toUpper()
+             << "sign" << sign.toHex().toUpper() << "userid" << userid;
+    bool success = m_openSSLHelper->signVerify(data, sign, publicKey, hashAlgo, userid);
     if (success) {
         QMessageBox::information(this, tr("提示"), tr("验签成功！\t"), QMessageBox::Ok);
     } else {
@@ -461,14 +481,17 @@ void MainWindow::on_seaEncryptPushButton_clicked()
 {
     bool isFile = ui->seaDataFileCheckBox->isChecked();
     bool inBase64 = ui->seaBase64CheckBox->isChecked();
-    OpenSSLHelper::AesMode mode 
-        = OpenSSLHelper::aesModeFromName(ui->seaEncryptModeComboBox->currentText());
+    bool isAes = ui->seaAlgoComboBox->currentText().contains("AES");
+    OpenSSLHelper::SymMode mode 
+        = OpenSSLHelper::symModeFromName(ui->seaEncryptModeComboBox->currentText());
     QByteArray data = getData(isFile, ui->seaDataLineEdit->text(), false);
     QByteArray iv = QByteArray::fromHex(ui->seaIvLineEdit->text().toUtf8());
     QByteArray key = QByteArray::fromHex(ui->seaKeyLineEdit->text().toUtf8());
     qDebug() << "key" << key.toHex() << "iv" << iv.toHex() << "data" << data.toHex();
 
-    QByteArray encrypt = m_openSSLHelper->aesEncrypt(data, key, mode, iv);
+    QByteArray encrypt = isAes
+        ? m_openSSLHelper->aesEncrypt(data, key, mode, iv)
+        : m_openSSLHelper->sm4Encrypt(data, key, mode, iv);
     qDebug() << "encrypt" << encrypt.toHex();
     if (!encrypt.isEmpty()) {
         if (inBase64)
@@ -497,13 +520,17 @@ void MainWindow::on_seaDecryptPushButton_clicked()
 {
     bool isFile = ui->seaDataFileCheckBox->isChecked();
     bool inBase64 = ui->seaBase64CheckBox->isChecked();
-    OpenSSLHelper::AesMode mode 
-        = OpenSSLHelper::aesModeFromName(ui->seaEncryptModeComboBox->currentText());
+    bool isAes = ui->seaAlgoComboBox->currentText().contains("AES");
+    OpenSSLHelper::SymMode mode 
+        = OpenSSLHelper::symModeFromName(ui->seaEncryptModeComboBox->currentText());
+    QByteArray iv = QByteArray::fromHex(ui->seaIvLineEdit->text().toUtf8());
     QByteArray key = QByteArray::fromHex(ui->seaKeyLineEdit->text().toUtf8());
     QByteArray data = getData(isFile, ui->seaEncryptLineEdit->text(), inBase64);
     qDebug() << "key" << key.toHex() << "data" << data.toHex();
 
-    QByteArray decrypt = m_openSSLHelper->aesDecrypt(data, key, mode);
+    QByteArray decrypt = isAes
+        ? m_openSSLHelper->aesDecrypt(data, key, mode)
+        : m_openSSLHelper->sm4Decrypt(data, key, mode, iv);
     qDebug() << "decrypt" << decrypt.toHex();
     if (!decrypt.isEmpty()) {
         if (isFile) {
@@ -554,5 +581,34 @@ void MainWindow::on_seaKeyLineEdit_textChanged(const QString &arg1)
     if (i >= (ui->seaKeyBitsComboBox->count() - 1)) {
         ui->seaKeyBitsComboBox->setCurrentIndex(i);
     }
+}
+
+
+void MainWindow::on_seaAlgoComboBox_currentTextChanged(const QString &arg1)
+{
+    if (arg1.contains("AES")) {
+        ui->seaKeyBitsComboBox->setVisible(true);
+    } else {
+        ui->seaKeyBitsComboBox->setVisible(false);
+    }
+}
+
+
+void MainWindow::on_aes128cmacPushButton_clicked()
+{
+    QByteArray key = QByteArray::fromHex(ui->seaKeyLineEdit->text().toUtf8());
+    QByteArray data = QByteArray::fromHex(ui->seaDataLineEdit->text().toUtf8());
+    qDebug() << "key" << key.toHex() << "data" << data.toHex();
+
+    QByteArray encrypt = m_openSSLHelper->aes128GenerateCMAC(data, key);
+    qDebug() << "encrypt" << encrypt.toHex();
+    if (!encrypt.isEmpty()) {
+        ui->seaEncryptLineEdit->setText(encrypt.toHex().toUpper());
+        QMessageBox::information(this, tr("提示"), tr("计算成功！\t"), QMessageBox::Ok);
+    } else {
+        QMessageBox::critical(this, tr("错误"), 
+            tr("计算失败(%1)！\t").arg(m_openSSLHelper->lastErrors()));
+    }
+
 }
 

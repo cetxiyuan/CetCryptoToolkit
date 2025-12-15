@@ -40,15 +40,13 @@ private slots:
 
     void on_aeaDataToolButton_clicked();
 
-    void on_aeaEncryptToolButton_clicked();
-
-    void on_aeaDecryptToolButton_clicked();
-
     void on_aeaEncryptPushButton_clicked();
 
     void on_aeaDecryptPushButton_clicked();
 
     void on_aeaDigestPushButton_clicked();
+
+    void on_aeaDigestComboBox_currentTextChanged(const QString &arg1);
 
     void on_aeaSignPushButton_clicked();
 
@@ -67,6 +65,10 @@ private slots:
     void on_seaEncryptModeComboBox_currentTextChanged(const QString &arg1);
 
     void on_seaKeyLineEdit_textChanged(const QString &arg1);
+
+    void on_seaAlgoComboBox_currentTextChanged(const QString &arg1);
+
+    void on_aes128cmacPushButton_clicked();
 
 private:
     QByteArray getData(bool isFile, const QString &fileName, bool inBase64 = false);

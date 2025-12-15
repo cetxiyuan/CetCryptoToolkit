@@ -9,6 +9,10 @@
 #include <openssl/objects.h>
 #include <openssl/rand.h>
 #include <openssl/cmac.h>
+#include <openssl/provider.h>
+
+#include <openssl/core_names.h>  // 包含参数常量定义
+#include <openssl/param_build.h> // OpenSSL 3.0 参数构建
 
 #include <QRandomGenerator>
 #include <QTemporaryFile>
@@ -30,7 +34,8 @@
 
 static QList<QPair<QString, int>> supportedKeyAlgorithms = {
     {"RSA",         EVP_PKEY_RSA},
-    {"ECC",         EVP_PKEY_EC},
+    {"EC",          EVP_PKEY_EC},
+    {"SM2",         EVP_PKEY_SM2},
 };
 
 static QList<QPair<QString, const EVP_MD *>> supportedDigests = {
@@ -63,11 +68,11 @@ static QList<QPair<QString, int>> supportedRsaBits = {
     {"8192-bit",        8192},
 };
 
-static QList<QPair<QString, OpenSSLHelper::AesMode>> supportedAesModes = {
-    {"ECB",             OpenSSLHelper::AES_ECB},
-    {"CBC",             OpenSSLHelper::AES_CBC},
-    {"GCM",             OpenSSLHelper::AES_GCM},
-    {"CTR",             OpenSSLHelper::AES_CTR},
+static QList<QPair<QString, OpenSSLHelper::SymMode>> supportedSymModes = {
+    {"ECB",             OpenSSLHelper::SYM_ECB},
+    {"CBC",             OpenSSLHelper::SYM_CBC},
+    {"GCM",             OpenSSLHelper::SYM_GCM},
+    {"CTR",             OpenSSLHelper::SYM_CTR},
 };
 
 
@@ -90,6 +95,22 @@ void OpenSSLHelper::initOpenSSL()
                           OPENSSL_INIT_ADD_ALL_CIPHERS |
                           OPENSSL_INIT_ADD_ALL_DIGESTS, nullptr);
         OpenSSL_add_all_digests();
+        // 检查 SM2（公钥算法）
+        if (EVP_PKEY_is_a(NULL, "SM2"))
+            qInfo() << "SM2 is in default provider";
+
+        // 检查 SM3（摘要算法）
+        if (EVP_MD_is_a(NULL, "SM3"))
+            qInfo() << "SM3 is in default provider";
+
+        // 检查 SM4（对称加密算法）
+        if (EVP_CIPHER_is_a(NULL, "SM4"))
+            qInfo() << "SM4 is in default provider";
+
+        // 检查 CMAC（对称加密算法）
+        if (EVP_CIPHER_is_a(NULL, "CMAC"))
+            qInfo() << "CMAC is in default provider";
+
         initialized = true;
     }
 }
@@ -114,8 +135,8 @@ int OpenSSLHelper::callbackPassword(char *buf, int size, int rwflag, void *userd
     return len;
 }
 
-QPair<QSslKey, QSslKey> OpenSSLHelper::genKeyPair(const QString &algorithm, 
-                                                const QString &keySize, 
+QPair<QSslKey, QSslKey> OpenSSLHelper::genKeyPair(const QString &algorithm,
+                                                const QString &keySize,
                                                 const QString &passphrase)
 {
     // 所有变量定义在函数开头
@@ -129,67 +150,87 @@ QPair<QSslKey, QSslKey> OpenSSLHelper::genKeyPair(const QString &algorithm,
     long privLen = 0;
     QPair<QSslKey, QSslKey> keyPair;
     bool success = false;
-    int pkeyid = EVP_PKEY_NONE;
     QSsl::KeyAlgorithm algoType = QSsl::Rsa;
     QByteArray pass = passphrase.toUtf8();
+    const char *alg_name = nullptr;
+    OSSL_PARAM params[3];
+    int param_count = 0;
+    char curve_name[32] = {0};
+    int key_type = EVP_PKEY_NONE;
 
-    // 检查 SM2 曲线是否支持
-    EC_KEY *ec_key = EC_KEY_new_by_curve_name(NID_sm2);
-    if (!ec_key) {
-        qWarning("SM2 curve not supported! Recompile OpenSSL with enable-sm2.");
-    } else {
-        EC_KEY_free(ec_key);
+    key_type = keyAlgorithmFromName(algorithm);
+    if (key_type == -1) {
+        appendError("Failed to determine key type");
+        return keyPair;
     }
 
-    // 1. 初始化密钥生成上下文
-    qDebug() << "algorithm" << algorithm << "keySize" << keySize << "passphrase" << passphrase;
-    pkeyid = keyAlgorithmFromName(algorithm);
-    qDebug() << "pkeyid" << pkeyid; 
-    ctx = EVP_PKEY_CTX_new_id(pkeyid, nullptr);
+    // 1. 确定算法类型和参数
+    if (EVP_PKEY_RSA == key_type) {
+        alg_name = "RSA";
+        algoType = QSsl::Rsa;
+        int bits = keySize.toInt();
+        if (bits != 2048 && bits != 3072 && bits != 4096) bits = 2048;
+        params[param_count++] = OSSL_PARAM_construct_int(OSSL_PKEY_PARAM_RSA_BITS, &bits);
+    }
+    else if ((EVP_PKEY_EC == key_type) || (EVP_PKEY_SM2 == key_type)) {
+        alg_name = "EC";
+        algoType = QSsl::Ec;
+
+        // 处理曲线名称
+        if (EVP_PKEY_SM2 == key_type) {
+            strncpy(curve_name, "SM2", sizeof(curve_name)-1);
+        } else {
+            strncpy(curve_name, keySize.toUtf8().constData(), sizeof(curve_name)-1);
+        }
+
+        params[param_count++] = OSSL_PARAM_construct_utf8_string(
+            OSSL_PKEY_PARAM_GROUP_NAME, curve_name, 0);
+    }
+    else {
+        qWarning("Unsupported algorithm: %s", qUtf8Printable(algorithm));
+        goto cleanup;
+    }
+    params[param_count] = OSSL_PARAM_construct_end();
+
+    // 2. 创建密钥生成上下文
+    ctx = EVP_PKEY_CTX_new_from_name(nullptr, alg_name, nullptr);
     if (!ctx) {
         qWarning("Failed to create key generation context");
         goto cleanup;
     }
+
     if (EVP_PKEY_keygen_init(ctx) <= 0) {
         qWarning("Failed to initialize key generation");
         goto cleanup;
     }
 
-    // 2. 设置密钥参数
-    if (EVP_PKEY_RSA == pkeyid) {
-        int bits = rsaBitsFromName(keySize);
-        if (bits != 2048 && bits != 3072 && bits != 4096) {
-            qWarning("Invalid RSA key size, defaulting to 2048");
-            bits = 2048;
-        }
-        if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, bits) <= 0) {
-            qWarning("Failed to set RSA key length");
-            goto cleanup;
-        }
-    } else if (EVP_PKEY_EC == pkeyid || EVP_PKEY_SM2 == pkeyid) {
-        int nid = NID_undef;
-        if (EVP_PKEY_SM2 == pkeyid) {
-            nid = NID_sm2;
-        } else {
-            nid = ecCurveFromName(keySize);
-        }
-        if (nid == NID_undef) {
-            qWarning("Unsupported curve: %s", qUtf8Printable(keySize));
-            goto cleanup;
-        }
-        if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, nid) <= 0) {
-            qWarning("Failed to set EC curve");
-            goto cleanup;
-        }
+    // 3. 设置密钥参数
+    if (EVP_PKEY_CTX_set_params(ctx, params) <= 0) {
+        qWarning("Failed to set key parameters");
+        goto cleanup;
     }
 
-    // 3. 生成密钥对
-    if (EVP_PKEY_keygen(ctx, &pkey) <= 0) {
+    // 4. 生成密钥对
+    if (EVP_PKEY_generate(ctx, &pkey) <= 0) {
         qWarning("Failed to generate key pair");
         goto cleanup;
     }
 
-    // 4. 创建BIO缓冲区
+    // 5. 验证SM2密钥（使用新API）
+    if (EVP_PKEY_SM2 == key_type) {
+        // OpenSSL 3.0+ 推荐方式
+        if (!EVP_PKEY_get_group_name(pkey, curve_name, sizeof(curve_name), nullptr)) {
+            qWarning("Failed to get curve name from generated key");
+            goto cleanup;
+        }
+
+        if (strcmp(curve_name, "SM2") != 0) {
+            qWarning("Generated key is not SM2 (curve: %s)", curve_name);
+            goto cleanup;
+        }
+    }
+
+    // 6. 创建BIO缓冲区
     pubBio = BIO_new(BIO_s_mem());
     privBio = BIO_new(BIO_s_mem());
     if (!pubBio || !privBio) {
@@ -197,20 +238,20 @@ QPair<QSslKey, QSslKey> OpenSSLHelper::genKeyPair(const QString &algorithm,
         goto cleanup;
     }
 
-    // 5. 写入公钥（PEM格式）
+    // 7. 写入公钥（PEM格式）
     if (PEM_write_bio_PUBKEY(pubBio, pkey) <= 0) {
         qWarning("Failed to write public key");
         goto cleanup;
     }
 
-    // 6. 写入私钥（与openssl genpkey完全一致的格式）
+    // 8. 写入私钥
     if (!pass.isEmpty()) {
-        // 加密私钥（PKCS#8格式，对应-----BEGIN ENCRYPTED PRIVATE KEY-----）
+        // 加密私钥（PKCS#8格式）
         if (!PEM_write_bio_PKCS8PrivateKey(
                 privBio, 
                 pkey,
                 EVP_aes_256_cbc(),
-                (char *)pass.constData(),
+                pass.constData(),
                 pass.size(),
                 nullptr,
                 nullptr)) {
@@ -218,11 +259,11 @@ QPair<QSslKey, QSslKey> OpenSSLHelper::genKeyPair(const QString &algorithm,
             goto cleanup;
         }
     } else {
-        // 未加密私钥（PKCS#8格式，对应-----BEGIN PRIVATE KEY-----）
+        // 未加密私钥
         if (!PEM_write_bio_PrivateKey(
                 privBio,
                 pkey,
-                nullptr,  // 无加密
+                nullptr,
                 nullptr,
                 0,
                 nullptr,
@@ -232,7 +273,7 @@ QPair<QSslKey, QSslKey> OpenSSLHelper::genKeyPair(const QString &algorithm,
         }
     }
 
-    // 7. 获取BIO数据
+    // 9. 获取BIO数据
     pubLen = BIO_get_mem_data(pubBio, &pubData);
     privLen = BIO_get_mem_data(privBio, &privData);
     if (pubLen <= 0 || privLen <= 0) {
@@ -240,11 +281,10 @@ QPair<QSslKey, QSslKey> OpenSSLHelper::genKeyPair(const QString &algorithm,
         goto cleanup;
     }
 
-    // 8. 创建QSslKey对象
-    algoType = (pkeyid == EVP_PKEY_RSA) ? QSsl::Rsa : QSsl::Ec;
-    keyPair.first = QSslKey(QByteArray(pubData, pubLen), algoType, QSsl::Pem, QSsl::PublicKey, pass);
+    // 10. 创建QSslKey对象
+    keyPair.first = QSslKey(QByteArray(pubData, pubLen), algoType, QSsl::Pem, QSsl::PublicKey);
     keyPair.second = QSslKey(QByteArray(privData, privLen), algoType, QSsl::Pem, QSsl::PrivateKey, pass);
-    //qWarning("privData:%.64s", privData);
+    
     if (keyPair.first.isNull() || keyPair.second.isNull()) {
         qWarning("Failed to create QSslKey objects");
         goto cleanup;
@@ -253,7 +293,7 @@ QPair<QSslKey, QSslKey> OpenSSLHelper::genKeyPair(const QString &algorithm,
     success = true;
 
 cleanup:
-    // 释放资源（所有指针初始化为nullptr，可安全调用free）
+    // 释放资源
     if (ctx) EVP_PKEY_CTX_free(ctx);
     if (pkey) EVP_PKEY_free(pkey);
     if (pubBio) BIO_free(pubBio);
@@ -272,6 +312,7 @@ QSslCertificate OpenSSLHelper::genSelfCert(int validDays,
                                         const QString &hashAlgo,
                                         const QString &passphrase)
 {
+    // 所有变量定义集中在此
     X509 *x509 = nullptr;
     EVP_PKEY *pkey = nullptr;
     BIO *bio = nullptr;
@@ -279,216 +320,312 @@ QSslCertificate OpenSSLHelper::genSelfCert(int validDays,
     ASN1_INTEGER *serial = nullptr;
     X509_NAME *name = nullptr;
     BUF_MEM *mem = nullptr;
-    const EVP_MD *md = nullptr;
+    EVP_MD *md = nullptr;
+    EVP_MD_CTX *md_ctx = nullptr;
     QSslCertificate certificate;
     QByteArray pass = passphrase.toUtf8();
     QByteArray pemData = privateKey.toPem(pass);
     bool isEncrypted = pemData.contains("ENCRYPTED");
     QStringList extensions;
+    const char *digest_name = nullptr;
+    int ret = 0;
+    int key_type = EVP_PKEY_NONE;
 
-    // 参数检查
+    // 1. 参数验证
     if (validDays <= 0 || subjectDN.isEmpty() || privateKey.isNull()) {
-        appendError("Invalid parameters for certificate generation");
+        appendError(tr("Invalid parameters: validDays=%1, subjectDN='%2', keyNull=%3")
+                   .arg(validDays).arg(subjectDN).arg(privateKey.isNull()));
         goto cleanup;
     }
 
-    // 初始化X509证书
+    // 2. 创建X509证书结构
     if (!(x509 = X509_new())) {
-        appendError("X509_new() failed");
+        appendError("X509_new() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 设置证书版本
-    X509_set_version(x509, 2);
-
-    // 生成随机序列号
-    bn = BN_new();
-    BN_rand(bn, 160, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY);
-    serial = ASN1_INTEGER_new();
-    BN_to_ASN1_INTEGER(bn, serial);
-    X509_set_serialNumber(x509, serial);
-
-    // 设置有效期
-    X509_gmtime_adj(X509_get_notBefore(x509), 0);
-    X509_gmtime_adj(X509_get_notAfter(x509), validDays * 86400);
-
-    // 解析和设置主题DN
-    name = parseSubjectDN(subjectDN);
-    if (!name) {
-        appendError("Failed to parse subject DN");
+    // 3. 设置证书版本 (v3)
+    if (!X509_set_version(x509, 2)) {
+        appendError("X509_set_version() failed: " + getOpenSSLError());
         goto cleanup;
     }
-    X509_set_subject_name(x509, name);
-    X509_set_issuer_name(x509, name);
 
-    // 加载私钥
-    bio = BIO_new_mem_buf(pemData.constData(), pemData.size());
-    if (!bio) {
-        appendError("BIO_new_mem_buf() failed");
+    // 4. 生成随机序列号
+    if (!(bn = BN_new()) || !BN_rand(bn, 160, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY)) {
+        appendError("BN_rand() failed: " + getOpenSSLError());
         goto cleanup;
     }
-    if (isEncrypted) {
-        pkey = PEM_read_bio_PrivateKey(bio, nullptr, 
-                            callbackPassword, 
-                            pass.isEmpty() ? nullptr : &pass);
-    } else {
-        pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
+    if (!(serial = ASN1_INTEGER_new()) || !BN_to_ASN1_INTEGER(bn, serial)) {
+        appendError("BN_to_ASN1_INTEGER() failed: " + getOpenSSLError());
+        goto cleanup;
     }
+    if (!X509_set_serialNumber(x509, serial)) {
+        appendError("X509_set_serialNumber() failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 5. 设置有效期
+    if (!X509_gmtime_adj(X509_get_notBefore(x509), 0) ||
+        !X509_gmtime_adj(X509_get_notAfter(x509), validDays * 86400L)) {
+        appendError("X509_gmtime_adj() failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 6. 设置主题和颁发者DN
+    if (!(name = parseSubjectDN(subjectDN))) {
+        appendError("parseSubjectDN() failed for '" + subjectDN + "'");
+        goto cleanup;
+    }
+    if (!X509_set_subject_name(x509, name) || !X509_set_issuer_name(x509, name)) {
+        appendError("X509_set_subject/issuer_name() failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 7. 加载私钥
+    if (!(bio = BIO_new_mem_buf(pemData.constData(), pemData.size()))) {
+        appendError("BIO_new_mem_buf() failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+    
+    pkey = isEncrypted ? 
+        PEM_read_bio_PrivateKey(bio, nullptr, callbackPassword, pass.isEmpty() ? nullptr : &pass) :
+        PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
     if (!pkey) {
-        appendError("Failed to load Slef private key");
+        appendError("PEM_read_bio_PrivateKey() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 设置公钥
-    if (X509_set_pubkey(x509, pkey) != 1) {
-        appendError("Failed to set public key");
+    key_type = keyAlgorithmFromName(EVP_PKEY_get0_type_name(pkey));
+    if (key_type == -1) {
+        appendError("Failed to determine key type");
         goto cleanup;
     }
 
-    // 添加扩展
+    // 8. 设置公钥
+    if ((ret = X509_set_pubkey(x509, pkey)) != 1) {
+        appendError(tr("X509_set_pubkey() failed (ret=%1): ").arg(ret) + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 9. 添加扩展
     extensions << "basicConstraints=critical,CA:TRUE,pathlen:1"
                << "keyUsage=critical,keyCertSign,cRLSign"
-               << "subjectKeyIdentifier=hash"
-               << "authorityKeyIdentifier=keyid:always,issuer:always"
-               << "crlDistributionPoints=URI:http://pki.example.com/ca.crl";
-    // "certificatePolicies=1.2.3.4.5"
-    // "authorityInfoAccess=OCSP;URI:http://ocsp.example.com,caIssuers;URI:http://pki.example.com/ca.crt"
+               << "subjectKeyIdentifier=hash";
+    //if (EVP_PKEY_SM2 != key_type)
+        extensions << "authorityKeyIdentifier=keyid:always,issuer:always";
+
     if (!addExtensions(x509, x509, nullptr, extensions)) {
-        //appendError("Failed to add extensions");
+        appendError("addExtensions() failed");
         goto cleanup;
     }
 
-    // 签名证书
-    md = digestFromName(hashAlgo);
-    if (!md) {
-        appendError("Unsupported hash algorithm");
-        goto cleanup;
-    }
-    if (X509_sign(x509, pkey, md) <= 0) {
-        appendError("Failed to sign certificate");
+    // 10. 签名证书
+    digest_name = qPrintable(hashAlgo.toLower());
+    if (!(md = EVP_MD_fetch(nullptr, digest_name, nullptr))) {
+        appendError("EVP_MD_fetch(" + hashAlgo + ") failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 导出证书为PEM格式
-    bio = BIO_new(BIO_s_mem());
-    if (!bio) {
-        appendError("BIO_new() failed");
-        goto cleanup;
-    }
-    if (!PEM_write_bio_X509(bio, x509)) {
-        appendError("PEM_write_bio_X509() failed");
+    if (!(md_ctx = EVP_MD_CTX_new())) {
+        appendError("EVP_MD_CTX_new() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 转换为QSslCertificate
+    // SM2特殊签名处理
+    if (EVP_PKEY_SM2 == key_type) {
+        OSSL_PARAM params[2] = {
+            OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, (char*)"SM3", 0),
+            OSSL_PARAM_construct_end()
+        };
+
+        if (!EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, pkey) ||
+            !EVP_PKEY_CTX_set_params(EVP_MD_CTX_get_pkey_ctx(md_ctx), params)) {
+            appendError(tr("SM2 signature init failed: ") + getOpenSSLError());
+            goto cleanup;
+        }
+    } else {
+        if (!EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, pkey)) {
+            appendError("EVP_DigestSignInit() failed: " + getOpenSSLError());
+            goto cleanup;
+        }
+    }
+
+    if ((ret = X509_sign_ctx(x509, md_ctx)) <= 0) {
+        appendError(tr("X509_sign_ctx() failed (ret=%1): ").arg(ret) + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 11. 验证证书签名
+    if ((ret = X509_verify(x509, pkey)) <= 0) {
+        appendError(tr("Certificate verification failed (ret=%1): ").arg(ret) + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 12. 导出为PEM格式
+    BIO_free(bio);
+    if (!(bio = BIO_new(BIO_s_mem())) || !PEM_write_bio_X509(bio, x509)) {
+        appendError("PEM_write_bio_X509() failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 13. 转换为QSslCertificate
     BIO_get_mem_ptr(bio, &mem);
     if (mem && mem->data && mem->length > 0) {
         certificate = QSslCertificate(QByteArray(mem->data, mem->length), QSsl::Pem);
+        if (certificate.isNull()) {
+            appendError("QSslCertificate creation failed");
+        }
+    } else {
+        appendError("BIO_get_mem_ptr() failed");
     }
 
 cleanup:
-    if (serial) ASN1_INTEGER_free(serial);
-    if (bn) BN_free(bn);
-    if (name) X509_NAME_free(name);
+    // 资源清理（逆序）
+    if (md_ctx) EVP_MD_CTX_free(md_ctx);
+    if (md) EVP_MD_free(md);
     if (bio) BIO_free(bio);
     if (pkey) EVP_PKEY_free(pkey);
     if (x509) X509_free(x509);
+    if (name) X509_NAME_free(name);
+    if (serial) ASN1_INTEGER_free(serial);
+    if (bn) BN_free(bn);
 
     return certificate;
 }
 
 QString OpenSSLHelper::genCSR(const QString &subjectDN,
-                                const QSslKey &privateKey,
-                                const QStringList &extensions,
-                                const QString &passphrase)
+                        const QSslKey &privateKey,
+                        const QStringList &extensions,
+                        const QString &passphrase)
 {
     X509_REQ *req = nullptr;
     EVP_PKEY *pkey = nullptr;
     BIO *bio = nullptr;
     X509_NAME *name = nullptr;
     BUF_MEM *mem = nullptr;
+    EVP_MD_CTX *md_ctx = nullptr;
+    EVP_MD *md = nullptr;
     QByteArray csrPem;
     QByteArray pass = passphrase.toUtf8();
     QByteArray pemData = privateKey.toPem(pass);
     bool isEncrypted = pemData.contains("ENCRYPTED");
+    int key_type = EVP_PKEY_NONE;
+    int ret = 0;
 
     if (privateKey.isNull()) {
-        appendError("privateKey is invalid");
+        appendError(tr("Invalid private key"));
         return QString();
     }
 
-    // 创建CSR请求
-    req = X509_REQ_new();
-    if (!req) {
-        appendError("Failed to create X509_REQ structure");
+    // 1. 创建CSR请求
+    if (!(req = X509_REQ_new())) {
+        appendError("X509_REQ_new() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 设置CSR版本
+    // 2. 设置CSR版本
     if (!X509_REQ_set_version(req, 2)) {
-        appendError("Failed to set CSR version");
+        appendError("X509_REQ_set_version() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 解析和设置主题DN
-    name = parseSubjectDN(subjectDN);
-    if (!name) {
-        appendError("Failed to parse subject DN");
+    // 3. 加载私钥并检测类型
+    if (!(bio = BIO_new_mem_buf(pemData.constData(), pemData.size()))) {
+        appendError("BIO_new_mem_buf() failed: " + getOpenSSLError());
         goto cleanup;
     }
-    X509_REQ_set_subject_name(req, name);
 
-    // 加载私钥
-    bio = BIO_new_mem_buf(pemData.constData(), pemData.size());
-    if (!bio) {
-        appendError("BIO_new_mem_buf() failed");
-        goto cleanup;
-    }
-    if (isEncrypted) {
-        pkey = PEM_read_bio_PrivateKey(bio, nullptr, 
-                        callbackPassword, 
-                        pass.isEmpty() ? nullptr : &pass);
-    } else {
-        pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
-    }
+    pkey = isEncrypted ? 
+        PEM_read_bio_PrivateKey(bio, nullptr, callbackPassword, pass.isEmpty() ? nullptr : &pass) :
+        PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
+
     if (!pkey) {
-        appendError("Failed to load CSR private key");
+        appendError("PEM_read_bio_PrivateKey() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 设置公钥
+    key_type = keyAlgorithmFromName(EVP_PKEY_get0_type_name(pkey));
+    if (key_type == -1) {
+        appendError("Failed to determine key type");
+        goto cleanup;
+    }
+
+    md = EVP_MD_fetch(nullptr, (EVP_PKEY_SM2 == key_type)? "SM3" : "SHA256", nullptr);
+    if (!md) {
+        appendError("EVP_MD_fetch() failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 5. 设置主题名称
+    if (!(name = parseSubjectDN(subjectDN))) {
+        appendError(tr("parseSubjectDN() failed for '%1'").arg(subjectDN));
+        goto cleanup;
+    }
+    if (!X509_REQ_set_subject_name(req, name)) {
+        appendError("X509_REQ_set_subject_name() failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 6. 设置公钥
     if (!X509_REQ_set_pubkey(req, pkey)) {
-        appendError("Failed to set CSR public key");
+        appendError("X509_REQ_set_pubkey() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 添加扩展
-    if (!addExtensions(nullptr, nullptr, req, extensions)) {
-        //appendError("Failed to CSR add extensions");
+    // 7. 添加扩展
+    if (!extensions.isEmpty() && !addExtensions(nullptr, nullptr, req, extensions)) {
+        appendError("addExtensions() failed");
         goto cleanup;
     }
 
-    // 签名CSR
-    if (!X509_REQ_sign(req, pkey, EVP_sha256())) {
-        appendError("Failed to sign CSR");
+    // 8. 签名CSR
+    if (!(md_ctx = EVP_MD_CTX_new())) {
+        appendError("EVP_MD_CTX_new() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 导出为PEM格式
-    bio = BIO_new(BIO_s_mem());
-    if (!PEM_write_bio_X509_REQ(bio, req)) {
-        appendError("Failed to write CSR to memory");
+    // SM2特殊处理
+    if (EVP_PKEY_SM2 == key_type) {
+        OSSL_PARAM params[2] = {
+            OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, (char*)"SM3", 0),
+            OSSL_PARAM_construct_end()
+        };
+        if (!EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, pkey) ||
+            !EVP_PKEY_CTX_set_params(EVP_MD_CTX_get_pkey_ctx(md_ctx), params)) {
+            appendError("SM2 signature init failed: " + getOpenSSLError());
+            goto cleanup;
+        }
+    } else {
+        if (!EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, pkey)) {
+            appendError("EVP_DigestSignInit() failed: " + getOpenSSLError());
+            goto cleanup;
+        }
+    }
+
+    if ((ret = X509_REQ_sign_ctx(req, md_ctx)) <= 0) {
+        appendError(tr("X509_REQ_sign_ctx() failed (ret=%1): ").arg(ret) + getOpenSSLError());
         goto cleanup;
     }
 
-    // 获取PEM数据
+    // 9. 导出为PEM格式
+    BIO_free(bio);
+    if (!(bio = BIO_new(BIO_s_mem())) || !PEM_write_bio_X509_REQ(bio, req)) {
+        appendError("PEM_write_bio_X509_REQ() failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 10. 获取PEM数据
     BIO_get_mem_ptr(bio, &mem);
     if (mem && mem->data && mem->length > 0) {
         csrPem = QByteArray(mem->data, mem->length);
+    } else {
+        appendError("BIO_get_mem_ptr() failed");
     }
 
-cleanup:
-    // 释放资源
+    cleanup:
+    // 资源清理
+    if (md_ctx) EVP_MD_CTX_free(md_ctx);
+    if (md) EVP_MD_free(md);
     if (name) X509_NAME_free(name);
     if (bio) BIO_free_all(bio);
     if (pkey) EVP_PKEY_free(pkey);
@@ -504,6 +641,7 @@ QSslCertificate OpenSSLHelper::signCSR(int validDays, const QString &csrPem,
                                      const QString &hashAlgo,
                                      const QString &passphrase)
 {
+    // 所有变量定义
     X509 *cert = nullptr;
     X509_REQ *req = nullptr;
     EVP_PKEY *ca_pkey = nullptr;
@@ -512,142 +650,169 @@ QSslCertificate OpenSSLHelper::signCSR(int validDays, const QString &csrPem,
     BIGNUM *bn = nullptr;
     ASN1_INTEGER *serial = nullptr;
     BUF_MEM *mem = nullptr;
-    const EVP_MD *md = nullptr;
+    EVP_MD_CTX *md_ctx = nullptr;
+    EVP_MD *md = nullptr;
     QSslCertificate signedCert;
     QByteArray pass = passphrase.toUtf8();
     QByteArray pemData = caKey.toPem(pass);
     bool isEncrypted = pemData.contains("ENCRYPTED");
+    int key_type = EVP_PKEY_NONE;
+    int ret = 0;
+    X509_NAME *issuer = nullptr, *subject = nullptr;
 
+    // 参数校验
     if (caCert.isNull()) {
-        appendError("caCert is invalid");
+        appendError("CA certificate is invalid");
         return QSslCertificate();
     }
     if (caKey.isNull()) {
-        appendError("caKey is invalid");
+        appendError("CA private key is invalid");
         return QSslCertificate();
     }
     if (csrPem.isEmpty()) {
-        appendError("csrPem is isEmpty");
+        appendError("CSR is empty");
         return QSslCertificate();
     }
 
-    // 解析CSR
-    bio = BIO_new(BIO_s_mem());
-    if (!bio) {
-        appendError("Failed to create BIO for CSR");
+    // 1. 解析CSR
+    if (!(bio = BIO_new(BIO_s_mem()))) {
+        appendError("BIO_new() failed: " + getOpenSSLError());
         goto cleanup;
     }
     BIO_write(bio, csrPem.toUtf8().constData(), csrPem.toUtf8().size());
-    req = PEM_read_bio_X509_REQ(bio, nullptr, nullptr, nullptr);
-    if (!req) {
-        appendError("Failed to parse CSR");
+    if (!(req = PEM_read_bio_X509_REQ(bio, nullptr, nullptr, nullptr))) {
+        appendError("PEM_read_bio_X509_REQ() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 加载CA私钥
-    bio = BIO_new_mem_buf(pemData.constData(), pemData.size());
-    if (!bio) {
-        appendError("BIO_new_mem_buf() failed");
+    // 2. 加载CA私钥并检测类型
+    BIO_free(bio);
+    if (!(bio = BIO_new_mem_buf(pemData.constData(), pemData.size()))) {
+        appendError("BIO_new_mem_buf() failed: " + getOpenSSLError());
         goto cleanup;
     }
-    if (isEncrypted) {
-        ca_pkey = PEM_read_bio_PrivateKey(bio, nullptr, 
-                    callbackPassword, 
-                    pass.isEmpty() ? nullptr : &pass);
-    } else {
-        ca_pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
-    }
+
+    ca_pkey = isEncrypted ? 
+        PEM_read_bio_PrivateKey(bio, nullptr, callbackPassword, pass.isEmpty() ? nullptr : &pass) :
+        PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
+    
     if (!ca_pkey) {
-        appendError("Failed to load CA private key");
+        appendError("PEM_read_bio_PrivateKey() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 创建新证书
-    cert = X509_new();
-    if (!cert) {
-        appendError("Failed to create X509 certificate");
+    // 3. 确定CA密钥类型
+    key_type = keyAlgorithmFromName(EVP_PKEY_get0_type_name(ca_pkey));
+    if (key_type == -1) {
+        appendError("Failed to determine CA key type");
         goto cleanup;
     }
 
-    // 设置证书版本
+    // 4. 创建新证书
+    if (!(cert = X509_new())) {
+        appendError("X509_new() failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 5. 设置证书版本
     if (!X509_set_version(cert, 2)) {
-        appendError("Failed to set certificate version");
+        appendError("X509_set_version() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 生成序列号
-    bn = BN_new();
-    BN_rand(bn, 160, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY);
-    serial = BN_to_ASN1_INTEGER(bn, nullptr);
-    if (!serial) {
-        appendError("Failed to generate serial number");
+    // 6. 生成序列号
+    if (!(bn = BN_new()) || !BN_rand(bn, 160, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY)) {
+        appendError("BN_rand() failed: " + getOpenSSLError());
         goto cleanup;
     }
-    if (!X509_set_serialNumber(cert, serial)) {
-        appendError("Failed to set serial number");
+    if (!(serial = BN_to_ASN1_INTEGER(bn, nullptr)) || !X509_set_serialNumber(cert, serial)) {
+        appendError("Failed to set serial number: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 设置有效期
+    // 7. 设置有效期
     if (!X509_gmtime_adj(X509_get_notBefore(cert), 0) ||
         !X509_gmtime_adj(X509_get_notAfter(cert), validDays * 86400)) {
-        appendError("Failed to set validity period");
+        appendError("Failed to set validity period: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 设置颁发者和主题
-    if (!X509_set_issuer_name(cert, X509_get_subject_name(qcertToX509(caCert)))) {
-        appendError("Failed to set issuer name");
-        goto cleanup;
-    }
-    if (!X509_set_subject_name(cert, X509_REQ_get_subject_name(req))) {
-        appendError("Failed to set subject name");
-        goto cleanup;
-    }
-
-    // 设置公钥
-    req_pubkey = X509_REQ_get_pubkey(req);
-    if (!req_pubkey) {
-        appendError("Failed to get public key from CSR");
-        goto cleanup;
-    }
-    if (!X509_set_pubkey(cert, req_pubkey)) {
-        appendError("Failed to set certificate public key");
+    // 8. 设置颁发者和主题
+    issuer = X509_get_subject_name(qcertToX509(caCert));
+    subject = X509_REQ_get_subject_name(req);
+    if (!issuer || !subject || 
+        !X509_set_issuer_name(cert, issuer) || 
+        !X509_set_subject_name(cert, subject)) {
+        appendError("Failed to set names: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 添加扩展
-    if (!addExtensions(qcertToX509(caCert), cert, nullptr, extensions)) {
-        //appendError("Failed to add extensions");
+    // 9. 设置公钥
+    if (!(req_pubkey = X509_REQ_get_pubkey(req)) || !X509_set_pubkey(cert, req_pubkey)) {
+        appendError("Failed to set public key: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 签名证书
-    md = digestFromName(hashAlgo);
-    if (!md) {
-        appendError("Unsupported hash algorithm");
-        goto cleanup;
-    }
-    if (!X509_sign(cert, ca_pkey, md)) {
-        appendError("Failed to sign certificate");
+    // 10. 添加扩展
+    if (!extensions.isEmpty() && !addExtensions(qcertToX509(caCert), cert, nullptr, extensions)) {
+        appendError("addExtensions() failed");
         goto cleanup;
     }
 
-    // 导出为PEM格式
-    bio = BIO_new(BIO_s_mem());
-    if (!PEM_write_bio_X509(bio, cert)) {
-        appendError("Failed to write certificate to memory");
+    // 11. 签名证书
+    if (!(md = EVP_MD_fetch(nullptr, hashAlgo.toUtf8().constData(), nullptr))) {
+        appendError("EVP_MD_fetch() failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 获取PEM数据
+    if (!(md_ctx = EVP_MD_CTX_new())) {
+        appendError("EVP_MD_CTX_new() failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // SM2特殊处理
+    if (EVP_PKEY_SM2 == key_type) {
+        OSSL_PARAM params[2] = {
+            OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, (char*)"SM3", 0),
+            OSSL_PARAM_construct_end()
+        };
+
+        if (!EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, ca_pkey) ||
+            !EVP_PKEY_CTX_set_params(EVP_MD_CTX_get_pkey_ctx(md_ctx), params)) {
+            appendError("SM2 signature init failed: " + getOpenSSLError());
+            goto cleanup;
+        }
+    } else {
+        if (!EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, ca_pkey)) {
+            appendError("EVP_DigestSignInit() failed: " + getOpenSSLError());
+            goto cleanup;
+        }
+    }
+
+    if ((ret = X509_sign_ctx(cert, md_ctx)) <= 0) {
+        appendError(tr("X509_sign_ctx() failed (ret=%1): ").arg(ret) + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 12. 导出为PEM格式
+    BIO_free(bio);
+    if (!(bio = BIO_new(BIO_s_mem())) || !PEM_write_bio_X509(bio, cert)) {
+        appendError("PEM_write_bio_X509() failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    // 13. 获取PEM数据
     BIO_get_mem_ptr(bio, &mem);
     if (mem && mem->data && mem->length > 0) {
         signedCert = QSslCertificate(QByteArray(mem->data, mem->length), QSsl::Pem);
+    } else {
+        appendError("BIO_get_mem_ptr() failed");
     }
 
 cleanup:
-    // 释放资源
+    // 资源清理
+    if (md_ctx) EVP_MD_CTX_free(md_ctx);
+    if (md) EVP_MD_free(md);
     if (serial) ASN1_INTEGER_free(serial);
     if (bn) BN_free(bn);
     if (req_pubkey) EVP_PKEY_free(req_pubkey);
@@ -811,25 +976,8 @@ QByteArray OpenSSLHelper::toDer(const QString &pemData)
     }
 
     QByteArray derData;
-    if (pemData.contains("BEGIN EC PRIVATE KEY")) {
-        EC_KEY *ec = PEM_read_bio_ECPrivateKey(bio, nullptr, nullptr, nullptr);
-        if (ec) {
-            unsigned char *buf = nullptr;
-            int len = i2d_ECPrivateKey(ec, &buf);
-            if (len > 0) derData = QByteArray(reinterpret_cast<char *>(buf), len);
-            OPENSSL_free(buf);
-            EC_KEY_free(ec);
-        }
-    } else if (pemData.contains("BEGIN RSA PRIVATE KEY")) {
-        RSA *rsa = PEM_read_bio_RSAPrivateKey(bio, nullptr, nullptr, nullptr);
-        if (rsa) {
-            unsigned char *buf = nullptr;
-            int len = i2d_RSAPrivateKey(rsa, &buf);
-            if (len > 0) derData = QByteArray(reinterpret_cast<char *>(buf), len);
-            OPENSSL_free(buf);
-            RSA_free(rsa);
-        }
-    } else if (pemData.contains("BEGIN PRIVATE KEY")) {
+    if (pemData.contains("BEGIN EC PRIVATE KEY") || pemData.contains("BEGIN RSA PRIVATE KEY") || 
+        pemData.contains("BEGIN PRIVATE KEY")) {
         EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
         if (pkey) {
             unsigned char *buf = nullptr;
@@ -878,339 +1026,412 @@ QByteArray OpenSSLHelper::toDer(const QString &pemData)
 QByteArray OpenSSLHelper::digest(const QByteArray &data, const QString &hashAlgo)
 {
     if (data.isEmpty())
-         return QByteArray();
-
-    // 解析算法
-    const EVP_MD *md = digestFromName(hashAlgo);
-    if (!md)
         return QByteArray();
+
+    EVP_MD *md = EVP_MD_fetch(nullptr, hashAlgo.toUtf8().constData(), nullptr);
+    if (!md) {
+        qWarning() << "Unsupported hash algorithm:" << hashAlgo;
+        return QByteArray();
+    }
 
     EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
     if (!mdctx) {
+        EVP_MD_free(md);
         qWarning() << "EVP_MD_CTX_new failed";
         return QByteArray();
     }
 
-    // 初始化上下文
     if (1 != EVP_DigestInit_ex(mdctx, md, nullptr)) {
+        EVP_MD_CTX_free(mdctx);
+        EVP_MD_free(md);
         qWarning() << "EVP_DigestInit_ex failed:" << ERR_error_string(ERR_get_error(), nullptr);
-        EVP_MD_CTX_free(mdctx);
         return QByteArray();
     }
 
-    // 更新数据
     if (1 != EVP_DigestUpdate(mdctx, data.constData(), data.size())) {
+        EVP_MD_CTX_free(mdctx);
+        EVP_MD_free(md);
         qWarning() << "EVP_DigestUpdate failed:" << ERR_error_string(ERR_get_error(), nullptr);
-        EVP_MD_CTX_free(mdctx);
         return QByteArray();
     }
 
-    // 获取摘要
-    unsigned char digest[EVP_MAX_MD_SIZE];
-    unsigned int digestLen = 0;
-    if (1 != EVP_DigestFinal_ex(mdctx, digest, &digestLen)) {
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    unsigned int hashLen = 0;
+    if (1 != EVP_DigestFinal_ex(mdctx, hash, &hashLen)) {
+        EVP_MD_CTX_free(mdctx);
+        EVP_MD_free(md);
         qWarning() << "EVP_DigestFinal_ex failed:" << ERR_error_string(ERR_get_error(), nullptr);
-        EVP_MD_CTX_free(mdctx);
         return QByteArray();
     }
-    EVP_MD_CTX_free(mdctx);
 
-    return QByteArray(reinterpret_cast<char *>(digest), digestLen);
+    EVP_MD_CTX_free(mdctx);
+    EVP_MD_free(md);
+
+    return QByteArray(reinterpret_cast<char*>(hash), hashLen);
 }
 
 QByteArray OpenSSLHelper::signDigest(const QByteArray &digest,
                                     const QSslKey &privateKey,
-                                    const QString &hashAlgo) 
+                                    const QString &hashAlgo,
+                                    const QByteArray &userId)
 {
-    const EVP_MD *md = nullptr;
-    BIO *bio = nullptr;
+    const unsigned char SM2_DEFAULT_USERID[] = "1234567812345678"; // 16 bytes
+
     EVP_PKEY *pkey = nullptr;
-    EVP_PKEY_CTX *pkeyCtx = nullptr;
-    size_t sigLen = 0;
+    BIO *bio = nullptr;
+    EVP_PKEY_CTX *pctx = nullptr;
+    const EVP_MD *md = nullptr;
     QByteArray signature;
-    QByteArray pemData = privateKey.toPem();
+    size_t siglen = 0;
+    int key_type = EVP_PKEY_NONE;
 
     clearErrors();
 
-    // 参数检查
+    // 1. Parameter validation
     if (digest.isEmpty()) {
         appendError("Digest data is empty");
         goto cleanup;
     }
-
     if (privateKey.isNull()) {
         appendError("Private key is invalid");
         goto cleanup;
     }
 
-    // 获取哈希算法
-    md = digestFromName(hashAlgo);
+    // 2. Load private key
+    bio = BIO_new_mem_buf(privateKey.toPem().constData(), privateKey.toPem().size());
+    if (!bio) {
+        appendError("Failed to create BIO for private key");
+        goto cleanup;
+    }
+    pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
+    if (!pkey) {
+        appendError("Failed to parse private key: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    key_type = keyAlgorithmFromName(EVP_PKEY_get0_type_name(pkey));
+    if (key_type == -1) {
+        appendError("Unsupported key type");
+        goto cleanup;
+    }
+
+    // 3. Get digest algorithm
+    if (key_type == EVP_PKEY_SM2) {
+        md = EVP_sm3();
+        if (digest.size() != 32) { // SM3 produces 32-byte hash
+            appendError("For SM2, digest must be 32 bytes (SM3 hash length)");
+            goto cleanup;
+        }
+    } else {
+        md = EVP_MD_fetch(nullptr, hashAlgo.toUtf8().constData(), nullptr);
+    }
     if (!md) {
         appendError("Unsupported hash algorithm: " + hashAlgo);
         goto cleanup;
     }
 
-    // 注意：这里不再验证摘要长度，因为pkeyutl不验证
-
-    // 加载私钥
-    bio = BIO_new_mem_buf(pemData.constData(), pemData.size());
-    if (!bio) {
-        appendError("Failed to create BIO for private key");
+    // 4. Create signing context
+    pctx = EVP_PKEY_CTX_new(pkey, nullptr);
+    if (!pctx) {
+        appendError("EVP_PKEY_CTX_new failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
-    if (!pkey) {
-        appendError("Failed to parse private key");
-        goto cleanup;
-    }
+    // 5. Initialize signing operation
+    if (key_type == EVP_PKEY_SM2) {
+        OSSL_PARAM params[] = {
+            OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, (char*)"SM3", 0),
+            OSSL_PARAM_construct_end()
+        };
 
-    // 直接使用EVP_PKEY_CTX进行签名（对应pkeyutl）
-    pkeyCtx = EVP_PKEY_CTX_new(pkey, nullptr);
-    if (!pkeyCtx) {
-        appendError("Failed to create EVP_PKEY_CTX");
-        goto cleanup;
-    }
-
-    if (EVP_PKEY_sign_init(pkeyCtx) <= 0) {
-        appendError("Failed to initialize signing operation");
-        goto cleanup;
-    }
-
-    // 设置签名算法（对应pkeyopt digest:sha256）
-    if (EVP_PKEY_CTX_set_signature_md(pkeyCtx, md) <= 0) {
-        appendError("Failed to set signature hash algorithm");
-        goto cleanup;
-    }
-
-    // 设置RSA填充（仅对RSA密钥）
-    if (EVP_PKEY_id(pkey) == EVP_PKEY_RSA) {
-        if (EVP_PKEY_CTX_set_rsa_padding(pkeyCtx, RSA_PKCS1_PADDING) <= 0) {
-            appendError("Failed to set RSA padding");
+        if (1 != EVP_PKEY_sign_init(pctx) ||
+            1 != EVP_PKEY_CTX_set_params(pctx, params) ||
+            1 != EVP_PKEY_CTX_set1_id(pctx,
+                                    userId.isEmpty() ? SM2_DEFAULT_USERID : 
+                                    reinterpret_cast<const unsigned char*>(userId.constData()),
+                                    userId.isEmpty() ? 16 : userId.size())) {
+            appendError("SM2 init failed: " + getOpenSSLError());
+            goto cleanup;
+        }
+    } else if (key_type == EVP_PKEY_RSA) {
+        if (1 != EVP_PKEY_sign_init(pctx) ||
+            1 != EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PADDING) ||
+            1 != EVP_PKEY_CTX_set_signature_md(pctx, md)) {
+            appendError("RSA init failed: " + getOpenSSLError());
+            goto cleanup;
+        }
+    } else if (key_type == EVP_PKEY_EC) {
+        if (1 != EVP_PKEY_sign_init(pctx) ||
+            1 != EVP_PKEY_CTX_set_signature_md(pctx, md)) {
+            appendError("ECDSA init failed: " + getOpenSSLError());
             goto cleanup;
         }
     }
 
-    // 获取签名长度
-    if (EVP_PKEY_sign(pkeyCtx, nullptr, &sigLen, 
-                     reinterpret_cast<const uint8_t *>(digest.constData()),
-                     static_cast<size_t>(digest.size())) <= 0) {
-        appendError("Failed to get signature length");
+    // 6. Get signature length
+    if (1 != EVP_PKEY_sign(pctx, nullptr, &siglen, 
+            (unsigned char *)digest.constData(), 
+            digest.size())) {
+        appendError("Failed to get signature length: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 执行签名
-    signature.resize(static_cast<int>(sigLen));
-    if (EVP_PKEY_sign(pkeyCtx,
-                     reinterpret_cast<uint8_t *>(signature.data()),
-                     &sigLen,
-                     reinterpret_cast<const uint8_t *>(digest.constData()),
-                     static_cast<size_t>(digest.size())) <= 0) {
-        appendError("Failed to generate signature");
+    // 7. Allocate space and sign
+    signature.resize(static_cast<int>(siglen));
+    if (1 != EVP_PKEY_sign(pctx, 
+                         reinterpret_cast<unsigned char *>(signature.data()), 
+                         &siglen,
+                         (unsigned char *)digest.constData(),
+                         digest.size())) {
+        appendError("Signing failed: " + getOpenSSLError());
         signature.clear();
-        goto cleanup;
+    } else {
+        signature.resize(static_cast<int>(siglen));
     }
-    // 调整签名大小为实际写入的大小
-    signature.resize(static_cast<int>(sigLen));
 
 cleanup:
-    // 清理资源
-    if (pkeyCtx) EVP_PKEY_CTX_free(pkeyCtx);
+    if (pctx) EVP_PKEY_CTX_free(pctx);
     if (pkey) EVP_PKEY_free(pkey);
     if (bio) BIO_free(bio);
+    if (md && key_type != EVP_PKEY_SM2) EVP_MD_free((EVP_MD*)md);
 
     return signature;
 }
 
 QByteArray OpenSSLHelper::signData(const QByteArray &data, 
                                  const QSslKey &privateKey,
-                                 const QString &hashAlgo)
+                                 const QString &hashAlgo,
+                                 const QByteArray &userId)
 {
-    // 声明所有变量
-    const EVP_MD *md = nullptr;
-    BIO *bio = nullptr;
+    const unsigned char SM2_DEFAULT_USERID[] = "1234567812345678"; // 16 bytes
+
+    EVP_MD_CTX *md_ctx = nullptr;
     EVP_PKEY *pkey = nullptr;
-    EVP_MD_CTX *mdctx = nullptr;
-    EVP_PKEY_CTX *pkeyCtx = nullptr;
-    size_t siglen = 0;
+    BIO *bio = nullptr;
+    EVP_MD *md = nullptr;
     QByteArray signature;
-    QByteArray pemData = privateKey.toPem();
+    size_t siglen = 0;
+    int key_type = EVP_PKEY_NONE;
 
     clearErrors();
 
-    // 参数检查
+    // 1. 参数检查
     if (data.isEmpty()) {
-        appendError("Data to sign is empty");
+        appendError("Input data is empty");
         goto cleanup;
     }
-
     if (privateKey.isNull()) {
-        appendError("Private key is null");
+        appendError("Private key is invalid");
         goto cleanup;
     }
 
-    // 获取哈希算法
-    md = digestFromName(hashAlgo);
+    // 2. 加载私钥
+    bio = BIO_new_mem_buf(privateKey.toPem().constData(), privateKey.toPem().size());
+    if (!bio) {
+        appendError("Failed to create BIO for private key");
+        goto cleanup;
+    }
+    pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
+    if (!pkey) {
+        appendError("Failed to parse private key: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    key_type = keyAlgorithmFromName(EVP_PKEY_get0_type_name(pkey));
+    if (key_type == -1) {
+        appendError("Unsupported key type");
+        goto cleanup;
+    }
+
+    // 3. 获取摘要算法
+    md = EVP_MD_fetch(nullptr, hashAlgo.toUtf8().constData(), nullptr);
     if (!md) {
         appendError("Unsupported hash algorithm: " + hashAlgo);
         goto cleanup;
     }
 
-    // 加载私钥
-    bio = BIO_new_mem_buf(pemData.constData(), pemData.size());
-    if (!bio) {
-        appendError("Failed to create BIO");
+    // 4. 创建签名上下文
+    md_ctx = EVP_MD_CTX_new();
+    if (!md_ctx) {
+        appendError("EVP_MD_CTX_new failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    pkey = PEM_read_bio_PrivateKey(bio, nullptr, nullptr, nullptr);
-    if (!pkey) {
-        appendError("Failed to read private key");
-        goto cleanup;
-    }
+    // 5. 初始化签名操作
+    if (key_type == EVP_PKEY_SM2) {
+        // SM2特殊处理
+        OSSL_PARAM params[] = {
+            OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, (char*)"SM3", 0),
+            OSSL_PARAM_construct_end()
+        };
 
-    // 初始化签名上下文
-    mdctx = EVP_MD_CTX_new();
-    if (!mdctx) {
-        appendError("Failed to create EVP_MD_CTX");
-        goto cleanup;
-    }
-
-    if (EVP_DigestSignInit(mdctx, &pkeyCtx, md, nullptr, pkey) != 1) {
-        appendError("Failed to initialize signing");
-        goto cleanup;
-    }
-
-    // 设置RSA填充（仅对RSA密钥）
-    if (EVP_PKEY_id(pkey) == EVP_PKEY_RSA) {
-        if (EVP_PKEY_CTX_set_rsa_padding(pkeyCtx, RSA_PKCS1_PADDING) != 1) {
-            appendError("Failed to set RSA padding");
+        if (1 != EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, pkey) ||
+            1 != EVP_PKEY_CTX_set_params(EVP_MD_CTX_get_pkey_ctx(md_ctx), params) ||
+            1 != EVP_PKEY_CTX_set1_id(EVP_MD_CTX_get_pkey_ctx(md_ctx),
+                                    userId.isEmpty() ? SM2_DEFAULT_USERID : 
+                                    reinterpret_cast<const unsigned char*>(userId.constData()),
+                                    userId.isEmpty() ? 16 : userId.size())) {
+            appendError("SM2 init failed: " + getOpenSSLError());
+            goto cleanup;
+        }
+    } else if (key_type == EVP_PKEY_RSA) {
+        // RSA处理
+        if (1 != EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, pkey) ||
+            1 != EVP_PKEY_CTX_set_rsa_padding(EVP_MD_CTX_get_pkey_ctx(md_ctx), RSA_PKCS1_PADDING)) {
+            appendError("RSA init failed: " + getOpenSSLError());
+            goto cleanup;
+        }
+    } else if (key_type == EVP_PKEY_EC) {
+        // ECDSA处理
+        if (1 != EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, pkey)) {
+            appendError("ECDSA init failed: " + getOpenSSLError());
             goto cleanup;
         }
     }
 
-    // 更新数据
-    if (EVP_DigestSignUpdate(mdctx, data.constData(), data.size()) != 1) {
-        appendError("Failed to update signing");
+    // 6. 计算数据摘要并签名
+    if (1 != EVP_DigestSign(md_ctx, nullptr, &siglen, 
+                          reinterpret_cast<const unsigned char*>(data.constData()), 
+                          data.size())) {
+        appendError("Failed to get signature length: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 获取签名长度
-    if (EVP_DigestSignFinal(mdctx, nullptr, &siglen) != 1) {
-        appendError("Failed to get signature length");
-        goto cleanup;
-    }
-
-    // 生成签名
     signature.resize(static_cast<int>(siglen));
-    if (EVP_DigestSignFinal(mdctx, reinterpret_cast<unsigned char*>(signature.data()), &siglen) != 1) {
-        appendError("Failed to finalize signing");
+    if (1 != EVP_DigestSign(md_ctx, 
+                          reinterpret_cast<unsigned char*>(signature.data()), 
+                          &siglen,
+                          reinterpret_cast<const unsigned char*>(data.constData()),
+                          data.size())) {
+        appendError("Signing failed: " + getOpenSSLError());
         signature.clear();
-        goto cleanup;
+    } else {
+        signature.resize(static_cast<int>(siglen));
     }
 
 cleanup:
-    if (bio) BIO_free(bio);
-    if (mdctx) EVP_MD_CTX_free(mdctx);
+    if (md_ctx) EVP_MD_CTX_free(md_ctx);
     if (pkey) EVP_PKEY_free(pkey);
+    if (bio) BIO_free(bio);
+    if (md) EVP_MD_free(md);
+
     return signature;
 }
 
-bool OpenSSLHelper::signVerify(const QByteArray &data, 
-                                  const QByteArray &signature,
-                                  const QSslKey &publicKey, 
-                                  const QString &hashAlgo)
+bool OpenSSLHelper::signVerify(const QByteArray &data,
+                             const QByteArray &signature,
+                             const QSslKey &publicKey,
+                             const QString &hashAlgo,
+                             const QByteArray &userId)
 {
-    const EVP_MD *md = nullptr;
-    BIO *bio = nullptr;
+    const unsigned char SM2_DEFAULT_USERID[] = "1234567812345678"; // 16 bytes
+
     EVP_PKEY *pkey = nullptr;
-    EVP_MD_CTX *mdctx = nullptr;
-    EVP_PKEY_CTX *pkeyCtx = nullptr;
-    int result = 0;
-    bool ret = false;
+    const EVP_MD *md = nullptr;
+    EVP_MD_CTX *md_ctx = nullptr;
+    EVP_PKEY_CTX *pkey_ctx = nullptr;
+    BIO *bio = nullptr;
+    int key_type = EVP_PKEY_NONE;
+    bool result = false;
     QByteArray pemData = publicKey.toPem();
+
+    qDebug() << "pemData" << pemData;
 
     clearErrors();
 
-    // 参数检查
+    // 1. 参数检查
     if (data.isEmpty()) {
-        appendError("Data to verify is empty");
+        appendError("Input data is empty");
         goto cleanup;
     }
-
     if (signature.isEmpty()) {
         appendError("Signature is empty");
         goto cleanup;
     }
-
     if (publicKey.isNull()) {
-        appendError("Public key is null");
+        appendError("Public key is invalid");
         goto cleanup;
     }
 
-    // 获取哈希算法
-    md = digestFromName(hashAlgo);
+    // 2. 加载公钥
+    bio = BIO_new_mem_buf(pemData.constData(), pemData.size());
+    if (!bio) {
+        appendError("Failed to create BIO for public key");
+        goto cleanup;
+    }
+    pkey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
+    if (!pkey) {
+        appendError("Failed to parse public key: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    qDebug() << "EVP_PKEY_get0_type_name(pkey)" << EVP_PKEY_get0_type_name(pkey) << "hashAlgo" << hashAlgo;
+    key_type = keyAlgorithmFromName(EVP_PKEY_get0_type_name(pkey));
+    if (key_type == -1) {
+        appendError("Unsupported key type");
+        goto cleanup;
+    }
+
+    // 3. 获取摘要算法
+    md = EVP_MD_fetch(nullptr, hashAlgo.toUtf8().constData(), nullptr);
     if (!md) {
         appendError("Unsupported hash algorithm: " + hashAlgo);
         goto cleanup;
     }
 
-    // 加载公钥
-    bio = BIO_new_mem_buf(pemData.constData(), pemData.size());
-    if (!bio) {
-        appendError("Failed to create BIO");
+    // 4. 创建验证上下文
+    md_ctx = EVP_MD_CTX_new();
+    if (!md_ctx) {
+        appendError("EVP_MD_CTX_new failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    pkey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
-    if (!pkey) {
-        appendError("Failed to read public key");
+    pkey_ctx = EVP_PKEY_CTX_new(pkey, nullptr);
+    if (!pkey_ctx) {
+        appendError("EVP_PKEY_CTX_new failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    // 初始化验证上下文
-    mdctx = EVP_MD_CTX_new();
-    if (!mdctx) {
-        appendError("Failed to create EVP_MD_CTX");
+    // 5. 初始化验证操作
+    EVP_MD_CTX_set_pkey_ctx(md_ctx, pkey_ctx);
+    if (1 != EVP_DigestVerifyInit(md_ctx, nullptr, md, nullptr, pkey)) {
+        appendError("ECDSA verify init failed: " + getOpenSSLError());
         goto cleanup;
     }
 
-    if (EVP_DigestVerifyInit(mdctx, &pkeyCtx, md, nullptr, pkey) != 1) {
-        appendError("Failed to initialize verification");
-        goto cleanup;
+    if (key_type == EVP_PKEY_SM2) {
+        if (1 != EVP_PKEY_CTX_set1_id(pkey_ctx,
+                                    userId.isEmpty() ? SM2_DEFAULT_USERID : 
+                                    reinterpret_cast<const unsigned char*>(userId.constData()),
+                                    userId.isEmpty() ? 16 : userId.size())) {
+            appendError("SM2 verify init failed: " + getOpenSSLError());
+            goto cleanup;
+        }
     }
-
-    // 设置RSA填充（仅对RSA密钥）
-    if (EVP_PKEY_id(pkey) == EVP_PKEY_RSA) {
-        if (EVP_PKEY_CTX_set_rsa_padding(pkeyCtx, RSA_PKCS1_PADDING) != 1) {
-            appendError("Failed to set RSA padding");
+    else if (key_type == EVP_PKEY_RSA) {
+        if (1 != EVP_PKEY_CTX_set_rsa_padding(EVP_MD_CTX_get_pkey_ctx(md_ctx), RSA_PKCS1_PADDING)) {
+            appendError("RSA verify init failed: " + getOpenSSLError());
             goto cleanup;
         }
     }
 
-    // 更新数据
-    if (EVP_DigestVerifyUpdate(mdctx, data.constData(), data.size()) != 1) {
-        appendError("Failed to update verification");
-        goto cleanup;
+    // 6. 执行验证
+    result = (1 == EVP_DigestVerify(md_ctx,
+                                  reinterpret_cast<const unsigned char *>(signature.constData()),
+                                  signature.size(),
+                                  reinterpret_cast<const unsigned char *>(data.constData()),
+                                  data.size()));
+    if (!result) {
+        appendError("Signature verification failed: " + getOpenSSLError());
     }
-
-    // 验证签名
-    result = EVP_DigestVerifyFinal(mdctx, 
-                             reinterpret_cast<const uint8_t *>(signature.constData()), 
-                             signature.size());
-
-    if (result != 1) {
-        appendError(tr("Signature verification failed: %1").arg(getOpenSSLError()));
-        goto cleanup;
-    }
-
-    ret = true;
 
 cleanup:
-    if (bio) BIO_free(bio);
-    if (mdctx) EVP_MD_CTX_free(mdctx);
+    if (pkey_ctx) EVP_PKEY_CTX_free(pkey_ctx);
+    if (md_ctx) EVP_MD_CTX_free(md_ctx);
     if (pkey) EVP_PKEY_free(pkey);
-    return ret;
+    if (bio) BIO_free(bio);
+    if (md && key_type != EVP_PKEY_SM2) EVP_MD_free((EVP_MD*)md);
+    return result;
 }
 
 QByteArray OpenSSLHelper::asymmetricEncrypt(const QByteArray &data, const QSslKey &publicKey) 
@@ -1263,7 +1484,7 @@ QByteArray OpenSSLHelper::asymmetricEncrypt(const QByteArray &data, const QSslKe
     }
 
     // 设置密钥特定的参数
-    switch (EVP_PKEY_id(pkey)) {
+    switch (keyAlgorithmFromName(EVP_PKEY_get0_type_name(pkey))) {
     case EVP_PKEY_RSA:
         if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0 ||
                 EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256()) <= 0 ||
@@ -1273,6 +1494,7 @@ QByteArray OpenSSLHelper::asymmetricEncrypt(const QByteArray &data, const QSslKe
         }
         break;
     case EVP_PKEY_EC:
+    case EVP_PKEY_SM2:
         // ECIES加密通常自动处理参数
         break;
     default:
@@ -1357,7 +1579,7 @@ QByteArray OpenSSLHelper::asymmetricDecrypt(const QByteArray &data, const QSslKe
     }
 
     // 设置密钥特定的参数
-    switch (EVP_PKEY_id(pkey)) {
+    switch (keyAlgorithmFromName(EVP_PKEY_get0_type_name(pkey))) {
     case EVP_PKEY_RSA:
         if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0 ||
             EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256()) <= 0 ||
@@ -1367,6 +1589,7 @@ QByteArray OpenSSLHelper::asymmetricDecrypt(const QByteArray &data, const QSslKe
         }
         break;
     case EVP_PKEY_EC:
+    case EVP_PKEY_SM2:
         // ECIES解密通常自动处理参数
         break;
     default:
@@ -1403,7 +1626,7 @@ cleanup:
 
 // 加密实现
 QByteArray OpenSSLHelper::aesEncrypt(const QByteArray &plaintext, 
-                const QByteArray &key, AesMode mode, const QByteArray &iv)
+                const QByteArray &key, SymMode mode, const QByteArray &iv)
 {
     if (plaintext.isEmpty())
          return QByteArray();
@@ -1443,7 +1666,7 @@ QByteArray OpenSSLHelper::aesEncrypt(const QByteArray &plaintext,
 
     // GCM模式需要额外处理Tag
     QByteArray tag;
-    if (AES_GCM == mode)
+    if (SYM_GCM == mode)
         tag.resize(16); // GCM标签通常16字节
 
     // 加密数据
@@ -1468,7 +1691,7 @@ QByteArray OpenSSLHelper::aesEncrypt(const QByteArray &plaintext,
     ciphertextLen += len;
 
     // 获取GCM标签
-    if (AES_GCM == mode) {
+    if (SYM_GCM == mode) {
         if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, tag.data()) != 1) {
             EVP_CIPHER_CTX_free(ctx);
             return QByteArray();
@@ -1479,12 +1702,12 @@ QByteArray OpenSSLHelper::aesEncrypt(const QByteArray &plaintext,
     ciphertext.resize(ciphertextLen);
 
     // 返回数据格式：GCM=IV+密文+Tag，其他=IV+密文
-    return (AES_GCM == mode) ? (actualIV + ciphertext + tag) : (actualIV + ciphertext);
+    return (SYM_GCM == mode) ? (actualIV + ciphertext + tag) : (actualIV + ciphertext);
 }
 
 // 解密实现
 QByteArray OpenSSLHelper::aesDecrypt(const QByteArray &ciphertext, 
-                    const QByteArray &key, AesMode mode)
+                    const QByteArray &key, SymMode mode)
 {
     if (ciphertext.isEmpty())
          return QByteArray();
@@ -1497,7 +1720,7 @@ QByteArray OpenSSLHelper::aesDecrypt(const QByteArray &ciphertext,
     // 解析输入数据（GCM=IV+密文+Tag，其他=IV+密文）
     QByteArray iv, encryptedData, tag;
     switch (mode) {
-        case AES_GCM:
+        case SYM_GCM:
             if (ciphertext.size() < 12 + 16) { // IV(12) + Tag(16)
                 qCritical() << "Invalid ciphertext format for GCM";
                 return QByteArray();
@@ -1537,7 +1760,7 @@ QByteArray OpenSSLHelper::aesDecrypt(const QByteArray &ciphertext,
     }
 
     // 设置GCM标签
-    if (AES_GCM == mode) {
+    if (SYM_GCM == mode) {
         if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16, tag.data()) != 1) {
             EVP_CIPHER_CTX_free(ctx);
             return QByteArray();
@@ -1571,37 +1794,221 @@ QByteArray OpenSSLHelper::aesDecrypt(const QByteArray &ciphertext,
     return plaintext;
 }
 
-// 生成CMAC
-QByteArray OpenSSLHelper::aesGenerateCMAC(const QByteArray &data, const QByteArray &key)
+QByteArray OpenSSLHelper::sm4Encrypt(const QByteArray &plaintext,
+                                            const QByteArray &key,
+                                            SymMode mode,
+                                            const QByteArray &iv)
 {
-    if (data.isEmpty())
-         return QByteArray();
-
-    if (key.size() != 16 && key.size() != 24 && key.size() != 32) {
-        qCritical() << "Invalid key size (must be 16/24/32 bytes)";
+    // 检查密钥长度（SM4 密钥必须为 16 字节）
+    if (key.size() != 16) {
+        qWarning() << "SM4 key must be 16 bytes!";
         return QByteArray();
     }
 
+    // 初始化 OpenSSL 上下文
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        qWarning() << "Failed to create EVP context";
+        return QByteArray();
+    }
+
+    // 选择 SM4 模式（CBC 或 ECB）
+    const EVP_CIPHER *cipher = nullptr;
+    switch (mode) {
+    case SYM_CBC:
+        cipher = EVP_sm4_cbc();  // SM4-CBC
+        break;
+    case SYM_ECB:
+        cipher = EVP_sm4_ecb();  // SM4-ECB
+        break;
+    default:
+        qWarning() << "Unsupported SM4 mode";
+        EVP_CIPHER_CTX_free(ctx);
+        return QByteArray();
+    }
+
+    // 检查 IV（CBC 模式需要 16 字节 IV）
+    if (mode == SYM_CBC && iv.size() != 16) {
+        qWarning() << "SM4-CBC requires a 16-byte IV!";
+        EVP_CIPHER_CTX_free(ctx);
+        return QByteArray();
+    }
+
+    // 初始化加密操作
+    if (EVP_EncryptInit_ex(ctx, cipher, nullptr,
+                          reinterpret_cast<const unsigned char*>(key.constData()),
+                          iv.isEmpty() ? nullptr : reinterpret_cast<const unsigned char*>(iv.constData())) != 1) {
+        qWarning() << "Failed to initialize SM4 encryption";
+        EVP_CIPHER_CTX_free(ctx);
+        return QByteArray();
+    }
+
+    // 输出缓冲区（可能需要填充）
+    QByteArray ciphertext(plaintext.size() + EVP_CIPHER_CTX_block_size(ctx), '\0');
+    int len = 0;
+
+    // 执行加密
+    if (EVP_EncryptUpdate(ctx,
+                         reinterpret_cast<unsigned char*>(ciphertext.data()), &len,
+                         reinterpret_cast<const unsigned char*>(plaintext.constData()),
+                         plaintext.size()) != 1) {
+        qWarning() << "SM4 encryption failed";
+        EVP_CIPHER_CTX_free(ctx);
+        return QByteArray();
+    }
+
+    int finalLen = 0;
+    if (EVP_EncryptFinal_ex(ctx,
+                           reinterpret_cast<unsigned char*>(ciphertext.data() + len), &finalLen) != 1) {
+        qWarning() << "SM4 final block encryption failed";
+        EVP_CIPHER_CTX_free(ctx);
+        return QByteArray();
+    }
+
+    ciphertext.resize(len + finalLen);
+    EVP_CIPHER_CTX_free(ctx);
+    return ciphertext;
+}
+
+QByteArray OpenSSLHelper::sm4Decrypt(const QByteArray &ciphertext,
+                                    const QByteArray &key,
+                                    SymMode mode,
+                                    const QByteArray &iv)
+{
+    // 检查密钥长度
+    if (key.size() != 16) {
+        qWarning() << "SM4 key must be 16 bytes!";
+        return QByteArray();
+    }
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        qWarning() << "Failed to create EVP context";
+        return QByteArray();
+    }
+
+    const EVP_CIPHER *cipher = nullptr;
+    switch (mode) {
+    case SYM_CBC:
+        cipher = EVP_sm4_cbc();
+        break;
+    case SYM_ECB:
+        cipher = EVP_sm4_ecb();
+        break;
+    default:
+        EVP_CIPHER_CTX_free(ctx);
+        return QByteArray();
+    }
+
+    if (mode == SYM_CBC && iv.size() != 16) {
+        qWarning() << "SM4-CBC requires a 16-byte IV!";
+        EVP_CIPHER_CTX_free(ctx);
+        return QByteArray();
+    }
+
+    if (EVP_DecryptInit_ex(ctx, cipher, nullptr,
+                          reinterpret_cast<const unsigned char*>(key.constData()),
+                          iv.isEmpty() ? nullptr : reinterpret_cast<const unsigned char*>(iv.constData())) != 1) {
+        qWarning() << "Failed to initialize SM4 decryption";
+        EVP_CIPHER_CTX_free(ctx);
+        return QByteArray();
+    }
+
+    QByteArray plaintext(ciphertext.size(), '\0');
+    int len = 0;
+
+    if (EVP_DecryptUpdate(ctx,
+                         reinterpret_cast<unsigned char*>(plaintext.data()), &len,
+                         reinterpret_cast<const unsigned char*>(ciphertext.constData()),
+                         ciphertext.size()) != 1) {
+        qWarning() << "SM4 decryption failed";
+        EVP_CIPHER_CTX_free(ctx);
+        return QByteArray();
+    }
+
+    int finalLen = 0;
+    if (EVP_DecryptFinal_ex(ctx,
+                           reinterpret_cast<unsigned char*>(plaintext.data() + len), &finalLen) != 1) {
+        qWarning() << "SM4 final block decryption failed";
+        EVP_CIPHER_CTX_free(ctx);
+        return QByteArray();
+    }
+
+    plaintext.resize(len + finalLen);
+    EVP_CIPHER_CTX_free(ctx);
+    return plaintext;
+}
+
+QByteArray OpenSSLHelper::aes128GenerateCMAC(const QByteArray &data, const QByteArray &key) {
+    if (data.isEmpty()) {
+        qCritical() << "Input data is empty";
+        return QByteArray();
+    }
+
+    // 强制密钥为 16 字节（AES-128）
+    if (key.size() != 16) {
+        qCritical() << "Invalid key size (must be 16 bytes for AES-128-CMAC)";
+        return QByteArray();
+    }
+
+    // 获取 CMAC 算法
+    EVP_MAC *mac = EVP_MAC_fetch(nullptr, "CMAC", nullptr);
+    if (!mac) {
+        qCritical() << "Failed to fetch CMAC:" << ERR_error_string(ERR_get_error(), nullptr);
+        return QByteArray();
+    }
+
+    // 创建 CMAC 上下文
+    EVP_MAC_CTX *ctx = EVP_MAC_CTX_new(mac);
+    if (!ctx) {
+        EVP_MAC_free(mac);
+        qCritical() << "Failed to create CMAC context";
+        return QByteArray();
+    }
+
+    // 设置 CMAC 参数（AES-128-CBC）
+    OSSL_PARAM params[] = {
+        OSSL_PARAM_construct_utf8_string("cipher", const_cast<char *>("AES-128-CBC"), 0),
+        OSSL_PARAM_construct_end()
+    };
+
+    // 初始化 CMAC
+    if (!EVP_MAC_init(ctx, 
+                     reinterpret_cast<const unsigned char*>(key.constData()), 
+                     key.size(), 
+                     params)) {
+        EVP_MAC_CTX_free(ctx);
+        EVP_MAC_free(mac);
+        qCritical() << "CMAC init failed:" << ERR_error_string(ERR_get_error(), nullptr);
+        return QByteArray();
+    }
+
+    // 更新数据
+    if (!EVP_MAC_update(ctx, 
+                       reinterpret_cast<const unsigned char*>(data.constData()), 
+                       data.size())) {
+        EVP_MAC_CTX_free(ctx);
+        EVP_MAC_free(mac);
+        qCritical() << "CMAC update failed";
+        return QByteArray();
+    }
+
+    // 获取 CMAC 结果（固定 16 字节）
+    QByteArray cmac(16, 0);
     size_t cmacLen;
-    QByteArray cmac(EVP_MAX_MD_SIZE, 0);
-
-    const EVP_CIPHER *cipher = aesCipher(AES_CBC, key);
-    if (!cipher) {
-        qCritical() << "Invalid key size for CMAC";
+    if (!EVP_MAC_final(ctx, 
+                      reinterpret_cast<unsigned char*>(cmac.data()), 
+                      &cmacLen, 
+                      cmac.size())) {
+        EVP_MAC_CTX_free(ctx);
+        EVP_MAC_free(mac);
+        qCritical() << "CMAC final failed:" << ERR_error_string(ERR_get_error(), nullptr);
         return QByteArray();
     }
 
-    CMAC_CTX *ctx = CMAC_CTX_new();
-    if (!ctx || 
-        !CMAC_Init(ctx, key.constData(), key.size(), cipher, nullptr) ||
-        !CMAC_Update(ctx, reinterpret_cast<const unsigned char*>(data.constData()), data.size()) ||
-        !CMAC_Final(ctx, reinterpret_cast<unsigned char*>(cmac.data()), &cmacLen)) {
-        if (ctx) CMAC_CTX_free(ctx);
-        return QByteArray();
-    }
-
-    CMAC_CTX_free(ctx);
-    cmac.resize(cmacLen);
+    // 清理资源
+    EVP_MAC_CTX_free(ctx);
+    EVP_MAC_free(mac);
     return cmac;
 }
 
@@ -1621,9 +2028,9 @@ QByteArray OpenSSLHelper::aesGenerateKey(int keySize)
 }
 
 // 生成随机IV
-QByteArray OpenSSLHelper::aesGenerateIV(AesMode mode)
+QByteArray OpenSSLHelper::aesGenerateIV(SymMode mode)
 {
-    int ivSize = (mode == AES_GCM) ? 12 : 16; // GCM推荐12字节，其他16字节
+    int ivSize = (mode == SYM_GCM) ? 12 : 16; // GCM推荐12字节，其他16字节
     QByteArray iv(ivSize, 0);
     if (RAND_bytes(reinterpret_cast<unsigned char*>(iv.data()), ivSize) != 1) {
         return QByteArray();
@@ -2498,31 +2905,31 @@ bool OpenSSLHelper::addExtensions(X509 *issuer,
 }
 
 // 获取对应模式的EVP_CIPHER指针
-const EVP_CIPHER *OpenSSLHelper::aesCipher(AesMode mode, const QByteArray &key)
+const EVP_CIPHER *OpenSSLHelper::aesCipher(SymMode mode, const QByteArray &key)
 {
     switch (mode) {
-        case AES_ECB:
+        case SYM_ECB:
             switch (key.size()) {
                 case 16: return EVP_aes_128_ecb();
                 case 24: return EVP_aes_192_ecb();
                 case 32: return EVP_aes_256_ecb();
             }
             break;
-        case AES_CBC:
+        case SYM_CBC:
             switch (key.size()) {
                 case 16: return EVP_aes_128_cbc();
                 case 24: return EVP_aes_192_cbc();
                 case 32: return EVP_aes_256_cbc();
             }
             break;
-        case AES_GCM:
+        case SYM_GCM:
             switch (key.size()) {
                 case 16: return EVP_aes_128_gcm();
                 case 24: return EVP_aes_192_gcm();
                 case 32: return EVP_aes_256_gcm();
             }
             break;
-        case AES_CTR:
+        case SYM_CTR:
             switch (key.size()) {
                 case 16: return EVP_aes_128_ctr();
                 case 24: return EVP_aes_192_ctr();
@@ -2546,7 +2953,7 @@ QString OpenSSLHelper::getOpenSSLError()
 
 QString OpenSSLHelper::lastErrors() const
 {
-    return m_errors.last();
+    return m_errors.isEmpty()? "" :  m_errors.last();
 }
 
 void OpenSSLHelper::clearErrors()
@@ -2597,13 +3004,13 @@ int OpenSSLHelper::rsaBitsFromName(const QString &name)
     return -1;
 }
 
-OpenSSLHelper::AesMode OpenSSLHelper::aesModeFromName(const QString &name)
+OpenSSLHelper::SymMode OpenSSLHelper::symModeFromName(const QString &name)
 {
-    for (const QPair<QString, OpenSSLHelper::AesMode> &pair : supportedAesModes)
+    for (const QPair<QString, OpenSSLHelper::SymMode> &pair : supportedSymModes)
         if (name == pair.first)
             return pair.second;
 
-    return (OpenSSLHelper::AesMode)-1;
+    return (OpenSSLHelper::SymMode)-1;
 }
 
 QStringList OpenSSLHelper::supportKeyAlgorithmNames()
@@ -2638,13 +3045,158 @@ QStringList OpenSSLHelper::supportRSABitsNames()
     return names;
 }
 
-QStringList OpenSSLHelper::supportAESModesNames()
+QStringList OpenSSLHelper::supportSymModesNames()
 {
     QStringList names;
-    for (const QPair<QString, OpenSSLHelper::AesMode> &pair : supportedAesModes)
+    for (const QPair<QString, OpenSSLHelper::SymMode> &pair : supportedSymModes)
         names.append(pair.first);
     return names;
 }
+
+QByteArray OpenSSLHelper::sm2PubKeyToDer(const QByteArray &rawPubKey)
+{
+    // 1. 检查输入是否为有效的 SM2 公钥
+    if (rawPubKey.size() != 64) {
+        qCritical() << "Invalid SM2 public key format (must be 64 bytes)";
+        return QByteArray();
+    }
+
+    QByteArray derPubKey;
+    QByteArray pubKey;
+
+    EVP_PKEY *pkey = nullptr;
+    OSSL_PARAM_BLD *paramBld = nullptr;
+    OSSL_PARAM *params = nullptr;
+    EVP_PKEY_CTX *ctx = nullptr;
+    unsigned char *derPtr = nullptr;
+    int derLen = 0;
+
+    // 2. 使用 EVP_PKEY 和 OSSL_PARAM 构建 SM2 公钥
+    paramBld = OSSL_PARAM_BLD_new();
+    if (!paramBld) {
+        qCritical() << "Failed to create OSSL_PARAM_BLD";
+        goto cleanup;
+    }
+
+    // 传递 04||X||Y
+    pubKey.append((uint8_t)0x04);
+    pubKey.append(rawPubKey);
+    if (!OSSL_PARAM_BLD_push_octet_string(paramBld, OSSL_PKEY_PARAM_PUB_KEY,
+                                         pubKey.constData(),
+                                         pubKey.size())) {
+        qCritical() << "Failed to set public key data";
+        goto cleanup;
+    }
+
+    // 设置 SM2 曲线参数
+    if (!OSSL_PARAM_BLD_push_utf8_string(paramBld, OSSL_PKEY_PARAM_GROUP_NAME,
+                                        "SM2", 0)) {
+        qCritical() << "Failed to set SM2 curve";
+        goto cleanup;
+    }
+
+    params = OSSL_PARAM_BLD_to_param(paramBld);
+    if (!params) {
+        qCritical() << "Failed to build OSSL_PARAM";
+        goto cleanup;
+    }
+
+    // 3. 从参数创建 EVP_PKEY
+    ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_SM2, NULL);
+    if (!ctx) {
+        qCritical() << "Failed to create EVP_PKEY_CTX";
+        goto cleanup;
+    }
+
+    if (EVP_PKEY_fromdata_init(ctx) <= 0) {
+        qCritical() << "Failed to initialize EVP_PKEY_fromdata";
+        goto cleanup;
+    }
+
+    if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0) {
+        qCritical() << "Failed to create EVP_PKEY from data";
+        goto cleanup;
+    }
+
+    // 4. 编码为 DER 格式（使用 i2d_PUBKEY）
+    derLen = i2d_PUBKEY(pkey, &derPtr);  // DER 编码
+    if (derLen <= 0) {
+        qCritical() << "Failed to encode SM2 public key to DER";
+        goto cleanup;
+    }
+    /**
+     * 5F70688E30DE3F86C5113E9C7DD0FDB780FD6701D5871153F698C16094188EE7F79FCC77A3FC06D85B5755F25B5AF5E8274B8DF81BA492D64065B65379914ADC
+     * 3059301306072A8648CE3D020106082A811CCF5501822D034200045F70688E30DE3F86C5113E9C7DD0FDB780FD6701D5871153F698C16094188EE7F79FCC77A3FC06D85B5755F25B5AF5E8274B8DF81BA492D64065B65379914ADC
+     * ASN.1 DER格式：3059(SEQUENCE 总长度 0x59(89 字节)) + 3013(SEQUENCE 椭圆曲线参数(19 字节))
+            + 0607(OID 标识算法：1.2.840.10045.2.1(ECDSA))2A8648CE3D0201
+            + 0608(OID 标识 SM2 曲线：1.2.156.10197.1.301)2A811CCF5501822D
+            + 03420004(公钥数据 00 填充 + 04(未压缩格式))
+            + 5F70688E30DE3F86C5113E9C7DD0FDB780FD6701D5871153F698C16094188EE7F79FCC77A3FC06D85B5755F25B5AF5E8274B8DF81BA492D64065B65379914ADC
+     */
+    derPubKey = QByteArray(reinterpret_cast<const char *>(derPtr), derLen);
+
+cleanup:
+    // 5. 清理资源
+    if (derPtr) OPENSSL_free(derPtr);
+    if (params) OSSL_PARAM_free(params);
+    if (paramBld) OSSL_PARAM_BLD_free(paramBld);
+    if (ctx) EVP_PKEY_CTX_free(ctx);
+    if (pkey) EVP_PKEY_free(pkey);
+
+    return derPubKey;
+}
+
+QByteArray OpenSSLHelper::sm2SignToDer(const QByteArray &rawSignKey)
+{
+    // 1. 检查输入是否为有效的 SM2 公钥
+    if (rawSignKey.size() != 64) {
+        qCritical() << "Invalid SM2 signature format - must be 64 bytes (32-byte r + 32-byte s)";
+        return QByteArray();
+    }
+
+    ECDSA_SIG *sign = nullptr;
+    BIGNUM *r = nullptr, *s = nullptr;
+    unsigned char *derPtr = nullptr;
+    int derLen = 0;
+    QByteArray signData;
+
+    r = BN_bin2bn(reinterpret_cast<const uint8_t *>(rawSignKey.constData()), 32, nullptr);
+    s = BN_bin2bn(reinterpret_cast<const uint8_t *>(rawSignKey.constData() + 32), 32, nullptr);
+    if (!r || !s) {
+        qCritical() << "Failed to convert signature components to BIGNUM";
+        goto cleanup;
+    }
+
+    /* 2. 64-byte r||s -> DER */
+    sign = ECDSA_SIG_new();
+    if (!sign || ECDSA_SIG_set0(sign, r, s) != 1) {
+        qCritical() << "Failed to create ECDSA_SIG structure";
+        goto cleanup;
+    }
+
+    derLen = i2d_ECDSA_SIG(sign, &derPtr);
+    if (derLen <= 0) {
+        qCritical() << "Failed to convert signature to DER format";
+        goto cleanup;
+    }
+
+    /**
+     * EE31D14FBAD44C35964429FAE0DE6410233419DC70D55A880124EE2B4663390F1C4FF5E5E640CA4B707D9FDF7034F385B9FD5818E74C85447BF5388AC2DEF2F6
+     * 3045022100EE31D14FBAD44C35964429FAE0DE6410233419DC70D55A880124EE2B4663390F02201C4FF5E5E640CA4B707D9FDF7034F385B9FD5818E74C85447BF5388AC2DEF2F6
+     * ASN.1 DER 格式：30(SEQUENCE) + 45(总长度) + 02(INTEGER: R的标记) + 21(R 的长度(32+1补字节)) + 00EE...0F
+              + 02(INTEGER: S的标记) + 20(r 的长度(32)) + 1C4F...F6
+     */
+    signData = QByteArray(reinterpret_cast<const char *>(derPtr), derLen);
+
+cleanup:
+    if (derPtr) OPENSSL_free(derPtr);
+    if (sign) ECDSA_SIG_free(sign);
+    if (r) BN_free(r);
+    if (s) BN_free(s);
+
+    return signData;
+}
+
 
 #if 0
 //============== 使用示例 =================

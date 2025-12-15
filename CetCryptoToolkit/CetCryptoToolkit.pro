@@ -35,6 +35,6 @@ qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
-win32: LIBS += -L$$PWD/libs/ -lCetProductWizard -lcrypto-1_1 -lssl-1_1
+win32: LIBS += -L$$PWD/libs/ -lCetProductWizard -lcrypto-3 -lssl-3
 
 RC_FILE += app.rc

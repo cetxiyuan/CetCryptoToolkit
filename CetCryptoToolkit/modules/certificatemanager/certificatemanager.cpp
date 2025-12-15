@@ -179,7 +179,7 @@ QSslCertificate CertificateManager::genCertificateOpenssl(int type, const QStrin
     QString keySize;
     if (keyAlgo.contains("RSA"))
         keySize = ui->rsaKeyLengthComboBox->currentText();
-    else if (keyAlgo.contains("ECC"))
+    else
         keySize = ui->eccCurveComboBox->currentText();
 
     bool chainRet = false;      // 证书链的生成结果
@@ -373,8 +373,11 @@ QSslCertificate CertificateManager::genCertificateCode(int type, const QString &
     QString keySize;
     if (keyAlgo.contains("RSA"))
         keySize = ui->rsaKeyLengthComboBox->currentText();
-    else if (keyAlgo.contains("ECC"))
+    else
         keySize = ui->eccCurveComboBox->currentText();
+
+    if (keyAlgo.contains("SM2"))
+        hashAlgo = "SM3";
 
     QString passphrase = ui->passphraseLineEdit->text();
     QString pfxPassphrase = ui->pfxPassphraseLineEdit->text();
@@ -654,8 +657,12 @@ void CertificateManager::on_keyTypeComboBox_currentTextChanged(const QString &ar
     ui->rsaKeyLengthComboBox->setVisible(false);
     ui->eccCurveLabel->setVisible(false);
     ui->eccCurveComboBox->setVisible(false);
+    ui->hashAlgoComboBox->setEnabled(true);
 
-    if (arg1.contains("RSA")) {
+    if (arg1.contains("SM2")) {
+        ui->hashAlgoComboBox->setCurrentText("SM3");
+        ui->hashAlgoComboBox->setEnabled(false);
+    } else if (arg1.contains("RSA")) {
         ui->rsaKeyLengthLabel->setVisible(true);
         ui->rsaKeyLengthComboBox->setVisible(true);
     } else {
