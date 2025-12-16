@@ -77,10 +77,12 @@ public:
     QByteArray signDigest(const QByteArray &digest,
                         const QSslKey &privateKey,
                         const QString &hashAlgo = "sha256",
+                        const QString &passphrase = "",
                         const QByteArray &userId = ""); // 仅SM2有
     QByteArray signData(const QByteArray &data, 
                         const QSslKey &privateKey,
                         const QString &hashAlgo = "sha256",
+                        const QString &passphrase = "",
                         const QByteArray &userId = ""); // 仅SM2有
     bool signVerify(const QByteArray &data, 
                         const QByteArray &signature,

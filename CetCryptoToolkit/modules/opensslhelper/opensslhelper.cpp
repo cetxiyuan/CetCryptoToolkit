@@ -1073,17 +1073,20 @@ QByteArray OpenSSLHelper::digest(const QByteArray &data, const QString &hashAlgo
 QByteArray OpenSSLHelper::signDigest(const QByteArray &digest,
                                     const QSslKey &privateKey,
                                     const QString &hashAlgo,
+                                    const QString &passphrase,
                                     const QByteArray &userId)
 {
     const unsigned char SM2_DEFAULT_USERID[] = "1234567812345678"; // 16 bytes
 
     EVP_PKEY *pkey = nullptr;
+    EVP_MD *md = nullptr;
+    EVP_PKEY_CTX *pkey_ctx = nullptr;
+    EVP_MD_CTX *md_ctx = nullptr;
     BIO *bio = nullptr;
-    EVP_PKEY_CTX *pctx = nullptr;
-    const EVP_MD *md = nullptr;
     QByteArray signature;
     size_t siglen = 0;
     int key_type = EVP_PKEY_NONE;
+    QByteArray pemData = privateKey.toPem(passphrase.toUtf8());
 
     clearErrors();
 
@@ -1098,7 +1101,7 @@ QByteArray OpenSSLHelper::signDigest(const QByteArray &digest,
     }
 
     // 2. Load private key
-    bio = BIO_new_mem_buf(privateKey.toPem().constData(), privateKey.toPem().size());
+    bio = BIO_new_mem_buf(pemData.constData(), pemData.size());
     if (!bio) {
         appendError("Failed to create BIO for private key");
         goto cleanup;
@@ -1116,37 +1119,35 @@ QByteArray OpenSSLHelper::signDigest(const QByteArray &digest,
     }
 
     // 3. Get digest algorithm
-    if (key_type == EVP_PKEY_SM2) {
-        md = EVP_sm3();
-        if (digest.size() != 32) { // SM3 produces 32-byte hash
-            appendError("For SM2, digest must be 32 bytes (SM3 hash length)");
-            goto cleanup;
-        }
-    } else {
-        md = EVP_MD_fetch(nullptr, hashAlgo.toUtf8().constData(), nullptr);
-    }
+    md = EVP_MD_fetch(nullptr, hashAlgo.toUtf8().constData(), nullptr);
     if (!md) {
         appendError("Unsupported hash algorithm: " + hashAlgo);
         goto cleanup;
     }
 
-    // 4. Create signing context
-    pctx = EVP_PKEY_CTX_new(pkey, nullptr);
-    if (!pctx) {
+    // 4. 创建签名上下文
+    md_ctx = EVP_MD_CTX_new();
+    if (!md_ctx) {
+        appendError("EVP_MD_CTX_new failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    pkey_ctx = EVP_PKEY_CTX_new(pkey, nullptr);
+    if (!pkey_ctx) {
         appendError("EVP_PKEY_CTX_new failed: " + getOpenSSLError());
         goto cleanup;
     }
 
+    EVP_MD_CTX_set_pkey_ctx(md_ctx, pkey_ctx);
+    if (1 != EVP_PKEY_sign_init(pkey_ctx)) {
+        appendError("EVP_PKEY_sign_init failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    qDebug() << "key_type" << key_type << "hashAlgo" << hashAlgo;
     // 5. Initialize signing operation
     if (key_type == EVP_PKEY_SM2) {
-        OSSL_PARAM params[] = {
-            OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, (char*)"SM3", 0),
-            OSSL_PARAM_construct_end()
-        };
-
-        if (1 != EVP_PKEY_sign_init(pctx) ||
-            1 != EVP_PKEY_CTX_set_params(pctx, params) ||
-            1 != EVP_PKEY_CTX_set1_id(pctx,
+        if (1 != EVP_PKEY_CTX_set1_id(pkey_ctx,
                                     userId.isEmpty() ? SM2_DEFAULT_USERID : 
                                     reinterpret_cast<const unsigned char*>(userId.constData()),
                                     userId.isEmpty() ? 16 : userId.size())) {
@@ -1154,22 +1155,19 @@ QByteArray OpenSSLHelper::signDigest(const QByteArray &digest,
             goto cleanup;
         }
     } else if (key_type == EVP_PKEY_RSA) {
-        if (1 != EVP_PKEY_sign_init(pctx) ||
-            1 != EVP_PKEY_CTX_set_rsa_padding(pctx, RSA_PKCS1_PADDING) ||
-            1 != EVP_PKEY_CTX_set_signature_md(pctx, md)) {
+        if (1 != EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PADDING)) {
             appendError("RSA init failed: " + getOpenSSLError());
-            goto cleanup;
-        }
-    } else if (key_type == EVP_PKEY_EC) {
-        if (1 != EVP_PKEY_sign_init(pctx) ||
-            1 != EVP_PKEY_CTX_set_signature_md(pctx, md)) {
-            appendError("ECDSA init failed: " + getOpenSSLError());
             goto cleanup;
         }
     }
 
+    if (1 != EVP_PKEY_CTX_set_signature_md(pkey_ctx, md)) {
+        appendError("EVP_PKEY_CTX_set_signature_md failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
     // 6. Get signature length
-    if (1 != EVP_PKEY_sign(pctx, nullptr, &siglen, 
+    if (1 != EVP_PKEY_sign(pkey_ctx, nullptr, &siglen, 
             (unsigned char *)digest.constData(), 
             digest.size())) {
         appendError("Failed to get signature length: " + getOpenSSLError());
@@ -1178,7 +1176,7 @@ QByteArray OpenSSLHelper::signDigest(const QByteArray &digest,
 
     // 7. Allocate space and sign
     signature.resize(static_cast<int>(siglen));
-    if (1 != EVP_PKEY_sign(pctx, 
+    if (1 != EVP_PKEY_sign(pkey_ctx, 
                          reinterpret_cast<unsigned char *>(signature.data()), 
                          &siglen,
                          (unsigned char *)digest.constData(),
@@ -1190,10 +1188,11 @@ QByteArray OpenSSLHelper::signDigest(const QByteArray &digest,
     }
 
 cleanup:
-    if (pctx) EVP_PKEY_CTX_free(pctx);
+    if (pkey_ctx) EVP_PKEY_CTX_free(pkey_ctx);
+    if (md_ctx) EVP_MD_CTX_free(md_ctx);
     if (pkey) EVP_PKEY_free(pkey);
     if (bio) BIO_free(bio);
-    if (md && key_type != EVP_PKEY_SM2) EVP_MD_free((EVP_MD*)md);
+    if (md) EVP_MD_free(md);
 
     return signature;
 }
@@ -1201,17 +1200,20 @@ cleanup:
 QByteArray OpenSSLHelper::signData(const QByteArray &data, 
                                  const QSslKey &privateKey,
                                  const QString &hashAlgo,
+                                 const QString &passphrase,
                                  const QByteArray &userId)
 {
     const unsigned char SM2_DEFAULT_USERID[] = "1234567812345678"; // 16 bytes
 
     EVP_MD_CTX *md_ctx = nullptr;
+    EVP_PKEY_CTX *pkey_ctx = nullptr;
     EVP_PKEY *pkey = nullptr;
-    BIO *bio = nullptr;
     EVP_MD *md = nullptr;
+    BIO *bio = nullptr;
     QByteArray signature;
     size_t siglen = 0;
     int key_type = EVP_PKEY_NONE;
+    QByteArray pemData = privateKey.toPem(passphrase.toUtf8());
 
     clearErrors();
 
@@ -1226,7 +1228,7 @@ QByteArray OpenSSLHelper::signData(const QByteArray &data,
     }
 
     // 2. 加载私钥
-    bio = BIO_new_mem_buf(privateKey.toPem().constData(), privateKey.toPem().size());
+    bio = BIO_new_mem_buf(pemData.constData(), pemData.size());
     if (!bio) {
         appendError("Failed to create BIO for private key");
         goto cleanup;
@@ -1257,17 +1259,21 @@ QByteArray OpenSSLHelper::signData(const QByteArray &data,
         goto cleanup;
     }
 
+    pkey_ctx = EVP_PKEY_CTX_new(pkey, nullptr);
+    if (!pkey_ctx) {
+        appendError("EVP_PKEY_CTX_new failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
+    EVP_MD_CTX_set_pkey_ctx(md_ctx, pkey_ctx);
+    if (1 != EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, pkey)) {
+        appendError("EVP_DigestSignInit failed: " + getOpenSSLError());
+        goto cleanup;
+    }
+
     // 5. 初始化签名操作
     if (key_type == EVP_PKEY_SM2) {
-        // SM2特殊处理
-        OSSL_PARAM params[] = {
-            OSSL_PARAM_construct_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, (char*)"SM3", 0),
-            OSSL_PARAM_construct_end()
-        };
-
-        if (1 != EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, pkey) ||
-            1 != EVP_PKEY_CTX_set_params(EVP_MD_CTX_get_pkey_ctx(md_ctx), params) ||
-            1 != EVP_PKEY_CTX_set1_id(EVP_MD_CTX_get_pkey_ctx(md_ctx),
+        if (1 != EVP_PKEY_CTX_set1_id(pkey_ctx,
                                     userId.isEmpty() ? SM2_DEFAULT_USERID : 
                                     reinterpret_cast<const unsigned char*>(userId.constData()),
                                     userId.isEmpty() ? 16 : userId.size())) {
@@ -1276,15 +1282,8 @@ QByteArray OpenSSLHelper::signData(const QByteArray &data,
         }
     } else if (key_type == EVP_PKEY_RSA) {
         // RSA处理
-        if (1 != EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, pkey) ||
-            1 != EVP_PKEY_CTX_set_rsa_padding(EVP_MD_CTX_get_pkey_ctx(md_ctx), RSA_PKCS1_PADDING)) {
+        if (1 != EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PADDING)) {
             appendError("RSA init failed: " + getOpenSSLError());
-            goto cleanup;
-        }
-    } else if (key_type == EVP_PKEY_EC) {
-        // ECDSA处理
-        if (1 != EVP_DigestSignInit(md_ctx, nullptr, md, nullptr, pkey)) {
-            appendError("ECDSA init failed: " + getOpenSSLError());
             goto cleanup;
         }
     }
@@ -1395,7 +1394,7 @@ bool OpenSSLHelper::signVerify(const QByteArray &data,
     // 5. 初始化验证操作
     EVP_MD_CTX_set_pkey_ctx(md_ctx, pkey_ctx);
     if (1 != EVP_DigestVerifyInit(md_ctx, nullptr, md, nullptr, pkey)) {
-        appendError("ECDSA verify init failed: " + getOpenSSLError());
+        appendError("EVP_DigestVerifyInit failed: " + getOpenSSLError());
         goto cleanup;
     }
 
@@ -1409,7 +1408,7 @@ bool OpenSSLHelper::signVerify(const QByteArray &data,
         }
     }
     else if (key_type == EVP_PKEY_RSA) {
-        if (1 != EVP_PKEY_CTX_set_rsa_padding(EVP_MD_CTX_get_pkey_ctx(md_ctx), RSA_PKCS1_PADDING)) {
+        if (1 != EVP_PKEY_CTX_set_rsa_padding(pkey_ctx, RSA_PKCS1_PADDING)) {
             appendError("RSA verify init failed: " + getOpenSSLError());
             goto cleanup;
         }

@@ -389,10 +389,10 @@ void MainWindow::on_aeaSignPushButton_clicked()
     QByteArray digest = (inBase64)
                          ? QByteArray::fromBase64(ui->aeaDigestLineEdit->text().toUtf8())
                          : QByteArray::fromHex(ui->aeaDigestLineEdit->text().toUtf8());
-    QByteArray sign = (!digest.isEmpty())
-                       ? m_openSSLHelper->signDigest(digest, privateKey, hashAlgo, userid)
-                       : m_openSSLHelper->signData(data, privateKey, hashAlgo, userid);
-    //QByteArray sign = m_openSSLHelper->signData(data, privateKey, hashAlgo, userid);
+    //QByteArray sign = (!digest.isEmpty())
+    //                   ? m_openSSLHelper->signDigest(digest, privateKey, hashAlgo, userid)
+    //                   : m_openSSLHelper->signData(data, privateKey, hashAlgo, userid);
+    QByteArray sign = m_openSSLHelper->signData(data, privateKey, hashAlgo, "", userid);
 
     qDebug() << "hashAlgo" << hashAlgo << "digest" << digest.toHex()
              << "sign" << sign.toHex();
@@ -413,12 +413,14 @@ void MainWindow::on_aeaSignPushButton_clicked()
 void MainWindow::on_aeaVerifySignPushButton_clicked()
 {
     bool inBase64 = ui->aeaBase64CheckBox->isChecked();
-    QByteArray origin = QByteArray::fromHex(
-                ui->aeaPublicLineEdit->text().toUtf8());
-    if (ui->aeaDigestComboBox->currentText().contains("SM3"))
-        origin = m_openSSLHelper->sm2PubKeyToDer(origin);
+    QSslKey publicKey = m_openSSLHelper->loadPublicKey(ui->aeaPublicLineEdit->text());
+    if (publicKey.isNull()) {
+        QByteArray origin = QByteArray::fromHex(
+                    ui->aeaPublicLineEdit->text().toUtf8());
+        publicKey = QSslKey(m_openSSLHelper->sm2PubKeyToDer(origin), 
+                            QSsl::Ec, QSsl::Der, QSsl::PublicKey);
+    }
 
-    QSslKey publicKey = QSslKey(origin, QSsl::Ec, QSsl::Der, QSsl::PublicKey);
     QString hashAlgo = ui->aeaDigestComboBox->currentText();
     QByteArray userid = (ui->aeaUserIdIsHexCheckBox->isChecked())
                          ? QByteArray::fromHex(ui->aeaUserIdLineEdit->text().toUtf8())
@@ -429,7 +431,7 @@ void MainWindow::on_aeaVerifySignPushButton_clicked()
                        ? QByteArray::fromBase64(ui->aeaSignLineEdit->text().toUtf8())
                        : QByteArray::fromHex(ui->aeaSignLineEdit->text().toUtf8());
 
-    if (ui->aeaDigestComboBox->currentText().contains("SM3"))
+    if (0x30 != sign.at(0))
         sign = m_openSSLHelper->sm2SignToDer(sign);
 
     qDebug() << "data" << data << "publicKey" << publicKey.toDer().toHex().toUpper()
