@@ -12,16 +12,17 @@
 	4.	D:/CetQ5.x/Tools/mingw810_32/bin/mingw32-make.exe
 
 	5.	D:/CetQ5.x/Tools/mingw810_32/bin/mingw32-make.exe install
-	
+		D:/CetQ5.x/Tools/mingw810_32/bin/mingw32-make.exe install_sw
+
 	
 	# openssl-3.0.18.tar.gz
 	1. 	tar zxvf openssl-3.0.18.tar.gz
 		cd openssl-3.0.18
 
-	2.	perl Configure mingw --prefix=/f/sharefolder/cetqtlearn/CetCryptoToolkit/openssl-3.0.18-mingw32 shared \
-			no-asm -D_WIN32_WINNT=0x0600 -L"D:/CetQ5.x/Tools/mingw810_32/lib" \
-			-I"D:/CetQ5.x/Tools/mingw810_32/include" enable-sm2 enable-sm3 enable-sm4
-		perl Configure mingw --prefix=/f/sharefolder/cetqtlearn/CetCryptoToolkit/openssl-3.0.18-mingw32 shared no-asm -D_WIN32_WINNT=0x0600 -L"D:/CetQ5.x/Tools/mingw810_32/lib" -I"D:/CetQ5.x/Tools/mingw810_32/include" enable-sm2 enable-sm3 enable-sm4
+	2.	perl Configure mingw --prefix="/f/sharefolder/cetqtlearn/CetCryptoToolkit/openssl-3.0.18-mingw32" shared \
+			no-asm -D_WIN32_WINNT=0x0600 -L"/d/CetQ5.x/Tools/mingw810_32/lib" \
+			-I"/d/CetQ5.x/Tools/mingw810_32/include" enable-sm2 enable-sm3 enable-sm4 enable-cmac 
+		perl Configure mingw --prefix="/f/sharefolder/cetqtlearn/CetCryptoToolkit/openssl-3.0.18-mingw32" shared no-asm -D_WIN32_WINNT=0x0600 -L"/d/CetQ5.x/Tools/mingw810_32/lib" -I"/d/CetQ5.x/Tools/mingw810_32/include"  enable-sm2 enable-sm3 enable-sm4 enable-cmac 
 
 	
 	
