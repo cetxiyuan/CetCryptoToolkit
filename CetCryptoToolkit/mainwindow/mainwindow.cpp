@@ -28,7 +28,7 @@
         " - CetCryptoToolkit - 设计者：CetXiyuan(璟·汐源忆醉) - 随时欢迎交流，谢谢！"
 
 #define TEXT_EndEntity          "终端证书"
-#define TEXT_IntermediateCA     "二级根证书"
+#define TEXT_SubordinateCA      "二级根证书"
 #define TEXT_RootCACustom       "一级根证书(Custom)"
 #define TEXT_RootCACetXiyuan    "一级根证书(CetXiyuan)"
 
@@ -60,7 +60,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 证书管理相关
     ui->certTypeComboBox->addItem(tr(TEXT_EndEntity));
-    ui->certTypeComboBox->addItem(tr(TEXT_IntermediateCA));
+    ui->certTypeComboBox->addItem(tr(TEXT_SubordinateCA));
     ui->certTypeComboBox->addItem(tr(TEXT_RootCACustom));
     ui->certTypeComboBox->addItem(tr(TEXT_RootCACetXiyuan));
     ui->certOutputDirLineEdit->setText(CAROOT_DEF_DIR);
@@ -235,8 +235,8 @@ void MainWindow::on_certTypeComboBox_currentTextChanged(const QString &arg1)
     if (arg1.contains(TEXT_EndEntity)) {
         m_certManager->setCommonName("example.com");
         m_certManager->setValidDays(365);
-    } else if (arg1.contains(TEXT_IntermediateCA)) {
-        m_certManager->setCommonName(CAINTER_DEF_COMMONNAME);
+    } else if (arg1.contains(TEXT_SubordinateCA)) {
+        m_certManager->setCommonName(CASUB_DEF_COMMONNAME);
         m_certManager->setValidDays(365 * 5);
     } else if (arg1.contains(TEXT_RootCACustom)) {
         m_certManager->setCommonName(CAROOT_CUS_COMMONNAME);

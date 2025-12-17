@@ -824,16 +824,16 @@ cleanup:
     return signedCert;
 }
 
-QString OpenSSLHelper::genChain(const QSslCertificate &interCACert, 
+QByteArray OpenSSLHelper::genChain(const QSslCertificate &subCACert, 
                               const QSslCertificate &rootCACert)
 {
-    QString chain;
-    if (!interCACert.isNull()) chain += interCACert.toPem();
+    QByteArray chain;
+    if (!subCACert.isNull()) chain += subCACert.toPem();
     if (!rootCACert.isNull()) chain += rootCACert.toPem();
     return chain;
 }
 
-QByteArray OpenSSLHelper::toP7b(const QString &chainPem)
+QByteArray OpenSSLHelper::toP7b(const QByteArray &chainPem)
 {
     if (chainPem.isEmpty())
        return QByteArray();
@@ -843,7 +843,7 @@ QByteArray OpenSSLHelper::toP7b(const QString &chainPem)
     STACK_OF(X509) *certs = sk_X509_new_null();
     QByteArray p7bData;
 
-    BIO *chainBio = BIO_new_mem_buf(chainPem.toUtf8().constData(), chainPem.size());
+    BIO *chainBio = BIO_new_mem_buf(chainPem.constData(), chainPem.size());
     while (X509 *cert = PEM_read_bio_X509(chainBio, nullptr, nullptr, nullptr)) {
         sk_X509_push(certs, cert);
     }
@@ -870,7 +870,7 @@ QByteArray OpenSSLHelper::toP7b(const QString &chainPem)
 
 QByteArray OpenSSLHelper::toPfx(const QSslCertificate &cert,
                               const QSslKey &privateKey,
-                              const QString &chainPem,
+                              const QByteArray &chainPem,
                               const QString &passphrase)
 {
     // 所有变量定义放在函数开头
@@ -901,7 +901,7 @@ QByteArray OpenSSLHelper::toPfx(const QSslCertificate &cert,
     sk_X509_push(certs, x509);
 
     // 添加证书链
-    chainBio = BIO_new_mem_buf(chainPem.toUtf8().constData(), chainPem.size());
+    chainBio = BIO_new_mem_buf(chainPem.constData(), chainPem.size());
     if (!chainBio) {
         appendError("Failed to create BIO for certificate chain");
         goto cleanup;
@@ -964,12 +964,12 @@ cleanup:
     return pfxData;
 }
 
-QByteArray OpenSSLHelper::toDer(const QString &pemData)
+QByteArray OpenSSLHelper::toDer(const QByteArray &pemData)
 {
     if (pemData.isEmpty())
         return QByteArray();
 
-    BIO *bio = BIO_new_mem_buf(pemData.toUtf8().constData(), pemData.toUtf8().size());
+    BIO *bio = BIO_new_mem_buf(pemData.constData(), pemData.size());
     if (!bio) {
         SSL_APPEND_ERROR("Failed to create BIO");
         return QByteArray();
@@ -2188,14 +2188,14 @@ bool OpenSSLHelper::opensslSignCSR(int validDays,
 }
 
 // [证书链=一级根证书+二级根证书]
-bool OpenSSLHelper::opensslGenChain(const QString &interCAPath, 
+bool OpenSSLHelper::opensslGenChain(const QString &subCAPath, 
                         const QString &rootCAPath, 
                         const QString &outPath)
 {
     // Get-Content -Path interCAPath, rootCAPath | Out-File -FilePath outPath -Encoding ASCII
     // 等价于 Linux: cat interCA.crt.pem rootCA.crt.pem > chain.pem
     QString command = tr("-Path \"%1\", \"%2\" | Out-File -FilePath \"%3\" -Encoding ASCII")
-                        .arg(interCAPath, rootCAPath, outPath);
+                        .arg(subCAPath, rootCAPath, outPath);
     return opensslTool("Get-Content", QStringList() << command);
 }
 
@@ -2339,7 +2339,7 @@ bool OpenSSLHelper::opensslTest(void)
     // CA二级根证书
     /**
      * openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
-          -aes256 -pass pass:intercapass -out certs/interCA.key.pem
+          -aes256 -pass pass:subcapass -out certs/subCA.key.pem
      */
     opensslTool("openssl", {
             "genpkey",
@@ -2347,13 +2347,13 @@ bool OpenSSLHelper::opensslTest(void)
             "-pkeyopt", "rsa_keygen_bits:3072",
             "-aes256",
             "-pass", "pass:intercapass",
-            "-out", "certs/interCA.key.pem",
+            "-out", "certs/subCA.key.pem",
         });
 
     /**
-     * openssl req -new -key certs/interCA.key.pem -passin pass:intercapass \
-            -out certs/interCA.csr.pem \
-            -subj "/C=CN/ST=Fujian/O=cetxiyuan.com/CN=Intermediate CA By CetXiyuan" \
+     * openssl req -new -key certs/subCA.key.pem -passin pass:subcapass \
+            -out certs/subCA.csr.pem \
+            -subj "/C=CN/ST=Fujian/O=cetxiyuan.com/CN=Subordinate CA By CetXiyuan" \
             -config NUL \
             -addext "subjectKeyIdentifier=hash" \
             -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
@@ -2362,10 +2362,10 @@ bool OpenSSLHelper::opensslTest(void)
     opensslTool("openssl", {
             "req",
             "-new",
-            "-key", "certs/interCA.key.pem",
-            "-passin", "pass:intercapass",
-            "-out", "certs/interCA.csr.pem",
-            "-subj", "\"/C=CN/ST=Fujian/O=cetxiyuan.com/CN=Intermediate CA By CetXiyuan\"",
+            "-key", "certs/subCA.key.pem",
+            "-passin", "pass:subcapass",
+            "-out", "certs/subCA.csr.pem",
+            "-subj", "\"/C=CN/ST=Fujian/O=cetxiyuan.com/CN=Subordinate CA By CetXiyuan\"",
             "-config", "NUL",
             "-addext", "\"subjectKeyIdentifier=hash\"",
             "-addext", "\"basicConstraints=critical,CA:TRUE,pathlen:0\"",
@@ -2386,20 +2386,20 @@ bool OpenSSLHelper::opensslTest(void)
     configFile.close();
 
     /**
-     * openssl x509 -req -in certs/interCA.csr.pem -CA certs/rootCA.crt.pem \
+     * openssl x509 -req -in certs/subCA.csr.pem -CA certs/rootCA.crt.pem \
             -CAkey certs/rootCA.key.pem -passin pass:rootcapass -CAcreateserial \
-            -out certs/interCA.crt.pem -days 1825 -sha256 \
+            -out certs/subCA.crt.pem -days 1825 -sha256 \
             -extfile F:/sharefolder/cetqtlearn/CetCryptoToolkit/CetCryptoToolkit/temp_config.QfOfqi
      */
     opensslTool("openssl", {
             "x509",
             "-req",
-            "-in", "certs/interCA.csr.pem",
+            "-in", "certs/subCA.csr.pem",
             "-CA", "certs/rootCA.crt.pem",
             "-CAkey", "certs/rootCA.key.pem",
             "-passin", "pass:rootcapass",
             "-CAcreateserial",
-            "-out", "certs/interCA.crt.pem",
+            "-out", "certs/subCA.crt.pem",
             "-days", "1825",
             "-sha256",
             "-extfile", configFile.fileName(),
@@ -2457,8 +2457,8 @@ bool OpenSSLHelper::opensslTest(void)
     configFile1.close();
 
     /**
-     * openssl x509 -req -in certs/terminal.csr.pem -CA certs/interCA.crt.pem \
-            -CAkey certs/interCA.key.pem -passin pass:intercapass -CAcreateserial \
+     * openssl x509 -req -in certs/terminal.csr.pem -CA certs/subCA.crt.pem \
+            -CAkey certs/subCA.key.pem -passin pass:subcapass -CAcreateserial \
             -out certs/terminal.crt.pem -days 365 -sha256 \
             -extfile F:/sharefolder/cetqtlearn/CetCryptoToolkit/CetCryptoToolkit/temp_config.hJFDKV
      */
@@ -2466,9 +2466,9 @@ bool OpenSSLHelper::opensslTest(void)
             "x509",
             "-req",
             "-in", "certs/terminal.csr.pem",
-            "-CA", "certs/interCA.crt.pem",
-            "-CAkey", "certs/interCA.key.pem",
-            "-passin", "pass:intercapass",
+            "-CA", "certs/subCA.crt.pem",
+            "-CAkey", "certs/subCA.key.pem",
+            "-passin", "pass:subcapass",
             "-CAcreateserial",
             "-out", "certs/terminal.crt.pem",
             "-days", "365",
@@ -2608,7 +2608,7 @@ QList<QSslCertificate> OpenSSLHelper::loadPKCS12(const QByteArray &pkcs12Data,
         qWarning() << "No main certificate found in PKCS12!";
     }
 
-    // 5. 转换 CA 证书链（Intermediate Certificates）
+    // 5. 转换 CA 证书链（Subordinate Certificates）
     if (ca) {
         const int caCount = sk_X509_num(ca);
         qDebug() << "Found" << caCount << "CA certificates in chain";
@@ -3209,14 +3209,14 @@ int main(int argc, char *argv[])
     OpenSSLHelper helper;
     
     // 生成证书链
-    if (!helper.generateCertificateChain("/path/to/certs", "rootPass123", "interPass123")) {
+    if (!helper.generateCertificateChain("/path/to/certs", "rootPass123", "subPass123")) {
         qCritical() << "Failed to generate certificate chain";
         return 1;
     }
     // 转换格式示例
     QStringList pemFiles = {
         "/path/to/certs/rootCA.crt.pem",
-        "/path/to/certs/intermediateCA.crt.pem",
+        "/path/to/certs/subCA.crt.pem",
         "/path/to/certs/client.crt.pem",
         "/path/to/certs/client.key.pem"
     };

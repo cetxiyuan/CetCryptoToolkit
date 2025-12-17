@@ -7,7 +7,7 @@
 
 #define USE_OPENSSL_TOOL_HANDLER     (0)
 
-#define CAINTER_DEF_COMMONNAME      "CetXiyuan Intermediate CA Signing Authority"
+#define CASUB_DEF_COMMONNAME        "CetXiyuan Subordinate CA Signing Authority"
 #define CAROOT_CUS_COMMONNAME       "CetXiyuan Custom Root CA Signing Authority"
 #define CAROOT_DEF_COMMONNAME       "CetXiyuan Root CA Signing Authority"  // 域名/服务器名
 #define CAROOT_DEF_DIR              QCoreApplication::applicationDirPath() + "/dir-certs"
@@ -24,7 +24,7 @@ class CertificateManager : public QDialog
 public:
     enum CertType {
         CERT_EndEntity = 0,     /**< 终端证书 */
-        CERT_IntermediateCA,    /**< 二级根证书 */
+        CERT_SubordinateCA,     /**< 二级根证书 */
         CERT_RootCACustom,      /**< 一级根证书(Custom) */
         CERT_RootCACetXiyuan,   /**< 一级根证书(CetXiyuan) */
     };
@@ -62,9 +62,9 @@ private slots:
 private:
     Ui::CertificateManager *ui;
     OpenSSLHelper *const m_openSSLHelper;
-    QPair<QSslKey, QSslKey> m_interCAKeyPair;   /* <二级证书公钥, 二级证书私钥> */
+    QPair<QSslKey, QSslKey> m_subCAKeyPair;     /* <二级证书公钥, 二级证书私钥> */
     QPair<QSslKey, QSslKey> m_rootCAKeyPair;    /* <一级证书公钥, 一级证书公钥> */
-    QSslCertificate m_interCACert;              /* 二级证书 */
+    QSslCertificate m_subCACert;                /* 二级证书 */
     QSslCertificate m_rootCACert;               /* 一级证书 */
 };
 

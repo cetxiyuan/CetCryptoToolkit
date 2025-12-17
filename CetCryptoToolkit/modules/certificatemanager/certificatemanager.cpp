@@ -23,10 +23,10 @@
 
 #define CAROOT_DEF_CANAME           "CetXiyuan"             // 一级根证书名(CetXiyuan)
 #define CAROOT_CUS_CANAME           "Custom"                // 一级根证书名(Custom)
-#define CAINTER_CANAME              "SSL"                   // 二级根证书名
+#define CASUB_CANAME                "Generic"               // 二级根证书名
 
 #define CAROOT                      "rootCA"                // 一级根证书标识
-#define CAINTER                     "interCA"               // 二级根证书标识
+#define CASUB                       "subCA"               // 二级根证书标识
 
 #define CA_PEM_CERT(dir, tier, caname)          tr("%1/%2-%3.crt.pem").arg(dir, tier, caname)
 #define CA_PEM_PUBLICKEY(dir, tier, caname)     tr("%1/%2-%3.pub.pem").arg(dir, tier, caname)
@@ -52,15 +52,15 @@
 /**
  * 二级根证书路径
  */
-#define CAINTER_PEM_CERT(dir)                   CA_PEM_CERT(dir, CAINTER, CAINTER_CANAME)
-#define CAINTER_PEM_PUBLICKEY(dir)              CA_PEM_PUBLICKEY(dir, CAINTER, CAINTER_CANAME)
-#define CAINTER_PEM_PRIVATEKEY(dir)             CA_PEM_PRIVATEKEY(dir, CAINTER, CAINTER_CANAME)
-#define CAINTER_PEM_CSR(dir)                    CA_PEM_CSR(dir, CAINTER, CAINTER_CANAME)
+#define CASUB_PEM_CERT(dir)                     CA_PEM_CERT(dir, CASUB, CASUB_CANAME)
+#define CASUB_PEM_PUBLICKEY(dir)                CA_PEM_PUBLICKEY(dir, CASUB, CASUB_CANAME)
+#define CASUB_PEM_PRIVATEKEY(dir)               CA_PEM_PRIVATEKEY(dir, CASUB, CASUB_CANAME)
+#define CASUB_PEM_CSR(dir)                      CA_PEM_CSR(dir, CASUB, CASUB_CANAME)
 
-#define CAINTER_DER_CERT(dir)                   CA_DER_CERT(dir, CAINTER, CAINTER_CANAME)
-#define CAINTER_DER_PUBLICKEY(dir)              CA_DER_PUBLICKEY(dir, CAINTER, CAINTER_CANAME)
-#define CAINTER_DER_PRIVATEKEY(dir)             CA_DER_PRIVATEKEY(dir, CAINTER, CAINTER_CANAME)
-#define CAINTER_DER_CSR(dir)                    CA_DER_CSR(dir, CAINTER, CAINTER_CANAME)
+#define CASUB_DER_CERT(dir)                     CA_DER_CERT(dir, CASUB, CASUB_CANAME)
+#define CASUB_DER_PUBLICKEY(dir)                CA_DER_PUBLICKEY(dir, CASUB, CASUB_CANAME)
+#define CASUB_DER_PRIVATEKEY(dir)               CA_DER_PRIVATEKEY(dir, CASUB, CASUB_CANAME)
+#define CASUB_DER_CSR(dir)                      CA_DER_CSR(dir, CASUB, CASUB_CANAME)
 
 /**
  * 证书链路径
@@ -75,10 +75,10 @@
 
 
 #define PLACEHOLDER_TEXT_COMMON \
-    tr("%1,%2,域名/服务器名").arg(CAROOT_DEF_COMMONNAME, CAINTER_DEF_COMMONNAME)
+    tr("%1,%2,域名/服务器名").arg(CAROOT_DEF_COMMONNAME, CASUB_DEF_COMMONNAME)
 
 #define TIP_COMMON  tr("一级根证书(eg: %1),二级根证书(eg: %2)," \
-    "终端证书(域名/服务器名)").arg(CAROOT_DEF_COMMONNAME, CAINTER_DEF_COMMONNAME)
+    "终端证书(域名/服务器名)").arg(CAROOT_DEF_COMMONNAME, CASUB_DEF_COMMONNAME)
 
 
 CertificateManager::CertificateManager(OpenSSLHelper *openSSLHelper, QWidget *parent)
@@ -128,8 +128,8 @@ CertificateManager::CertificateManager(OpenSSLHelper *openSSLHelper, QWidget *pa
     }
 
     // 加载二级根证书
-    if (QFile::exists(CAINTER_PEM_CERT(CAROOT_DEF_DIR))) {
-        loadCA(m_interCACert, m_interCAKeyPair, CAROOT_DEF_DIR, CAINTER, CAINTER_CANAME);
+    if (QFile::exists(CASUB_PEM_CERT(CAROOT_DEF_DIR))) {
+        loadCA(m_subCACert, m_subCAKeyPair, CAROOT_DEF_DIR, CASUB, CASUB_CANAME);
     }
 }
 
@@ -140,7 +140,7 @@ CertificateManager::~CertificateManager()
 
 void CertificateManager::setCommonName(const QString &commonName)
 {
-    if (commonName.contains(CAINTER_DEF_COMMONNAME)) {
+    if (commonName.contains(CASUB_DEF_COMMONNAME)) {
         if ("RSA" == ui->keyTypeComboBox->currentText())
             ui->rsaKeyLengthComboBox->setCurrentIndex(3);
         else
@@ -212,8 +212,8 @@ QSslCertificate CertificateManager::genCertificateOpenssl(int type, const QStrin
             return sslCert;
 
         addexts << "authorityKeyIdentifier=keyid,issuer";
-        if (m_interCACert.isNull()) {
-            qWarning() << "interCACert is null, use rootCACert Sign.";
+        if (m_subCACert.isNull()) {
+            qWarning() << "subCACert is null, use rootCACert Sign.";
 
             QString caname = QFile::exists(CAROOT_PEM_CERT(outputDir, CAROOT_CUS_CANAME))
                                 ? CAROOT_CUS_CANAME : CAROOT_DEF_CANAME;
@@ -224,8 +224,8 @@ QSslCertificate CertificateManager::genCertificateOpenssl(int type, const QStrin
                 return sslCert;
         } else {
             if (!m_openSSLHelper->opensslSignCSR(validDays, csrPath,
-                    CAINTER_PEM_CERT(outputDir),
-                    CAINTER_PEM_PRIVATEKEY(outputDir),
+                    CASUB_PEM_CERT(outputDir),
+                    CASUB_PEM_PRIVATEKEY(outputDir),
                     crtPath, addexts, hashAlgo))
                 return sslCert;
         }
@@ -240,7 +240,7 @@ QSslCertificate CertificateManager::genCertificateOpenssl(int type, const QStrin
         { // 生成证书链
             QString caname = QFile::exists(CAROOT_PEM_CERT(outputDir, CAROOT_CUS_CANAME))
                                 ? CAROOT_CUS_CANAME : CAROOT_DEF_CANAME;
-            chainRet = m_openSSLHelper->opensslGenChain(CAINTER_PEM_CERT(outputDir),
+            chainRet = m_openSSLHelper->opensslGenChain(CASUB_PEM_CERT(outputDir),
                                             CAROOT_PEM_CERT(outputDir, caname), 
                                             CHAIN_PEM_CERT(outputDir));
             if (chainRet) {
@@ -268,10 +268,10 @@ QSslCertificate CertificateManager::genCertificateOpenssl(int type, const QStrin
             extMessage.append(tr("PFX文件: %1\n").arg(FULL_BUNDLE_PFX(outputDir)));
         break;
     }
-    case CERT_IntermediateCA: { // 二级根证书
+    case CERT_SubordinateCA: { // 二级根证书
         if (!m_openSSLHelper->opensslGenKeyPair(keyAlgo, keySize, 
-                CAINTER_PEM_PRIVATEKEY(outputDir),
-                CAINTER_PEM_PUBLICKEY(outputDir)))
+                CASUB_PEM_PRIVATEKEY(outputDir),
+                CASUB_PEM_PUBLICKEY(outputDir)))
             return sslCert;
 
         QStringList addexts;
@@ -279,29 +279,29 @@ QSslCertificate CertificateManager::genCertificateOpenssl(int type, const QStrin
                 << "basicConstraints=critical,CA:TRUE,pathlen:0"
                 << "keyUsage=critical,keyCertSign,cRLSign";
         if (!m_openSSLHelper->opensslGenCSR(subjectDN,
-                CAINTER_PEM_PRIVATEKEY(outputDir),
-                CAINTER_PEM_CSR(outputDir),
+                CASUB_PEM_PRIVATEKEY(outputDir),
+                CASUB_PEM_CSR(outputDir),
                 addexts))
             return sslCert;
 
         addexts << "authorityKeyIdentifier=keyid:always,issuer";
         if (!m_openSSLHelper->opensslSignCSR(validDays, 
-                CAINTER_PEM_CSR(outputDir),
+                CASUB_PEM_CSR(outputDir),
                 CAROOT_PEM_CERT(outputDir, CAROOT_DEF_CANAME),
                 CAROOT_PEM_PRIVATEKEY(outputDir, CAROOT_DEF_CANAME),
-                CAINTER_PEM_CERT(outputDir),
+                CASUB_PEM_CERT(outputDir),
                 addexts, hashAlgo))
             return sslCert;
 
         // PEM to DER
-        m_openSSLHelper->opensslToDer(CAINTER_PEM_CERT(outputDir),
-            CAINTER_DER_CERT(outputDir));
+        m_openSSLHelper->opensslToDer(CASUB_PEM_CERT(outputDir),
+            CASUB_DER_CERT(outputDir));
 
         // 加载二级根证书
-        loadCA(sslCert, keyPair, outputDir, CAINTER, CAINTER_CANAME);
+        loadCA(sslCert, keyPair, outputDir, CASUB, CASUB_CANAME);
         if (!sslCert.isNull()) {
-            m_interCACert = sslCert;
-            m_interCAKeyPair = keyPair;
+            m_subCACert = sslCert;
+            m_subCAKeyPair = keyPair;
         }
         break;
     }
@@ -423,16 +423,16 @@ QSslCertificate CertificateManager::genCertificateCode(int type, const QString &
         extensions.append("authorityKeyIdentifier=keyid:always,issuer:always"); // 必须指向签发CA
         extensions.append("crlDistributionPoints=URI:http://example.com/ee.crl"); // 终端证书的CRL（推荐）
         //extensions.append("OCSP=URI:http://ocsp.example.com"); // OCSP响应地址（优于CRL）
-        if (m_interCACert.isNull()) {
-            qWarning() << "interCACert is null, use rootCACert Sign.";
+        if (m_subCACert.isNull()) {
+            qWarning() << "subCACert is null, use rootCACert Sign.";
             sslCert = m_openSSLHelper->signCSR(validDays, csrPem,
                                             m_rootCACert,
                                             m_rootCAKeyPair.second,
                                             extensions, hashAlgo, passphrase);
         } else {
             sslCert = m_openSSLHelper->signCSR(validDays, csrPem,
-                                            m_interCACert,
-                                            m_interCAKeyPair.second,
+                                            m_subCACert,
+                                            m_subCAKeyPair.second,
                                             extensions, hashAlgo, passphrase);
         }
         if (sslCert.isNull()) {
@@ -448,8 +448,11 @@ QSslCertificate CertificateManager::genCertificateCode(int type, const QString &
         saveToFile(sslCert.toDer(), tr("%1/%2.crt.der").arg(outputDir, commonName));
 
         // 生成证书链
-        QString chainPem = m_openSSLHelper->genChain(m_interCACert, m_rootCACert);
+        QByteArray chainPem = m_openSSLHelper->genChain(m_subCACert, m_rootCACert);
         if (!chainPem.isEmpty()) {
+            // 证书链 PEM 格式
+            saveToFile(chainPem, CHAIN_PEM_CERT(outputDir));
+
             // 证书链 转 P7B 格式
             QByteArray p7b = m_openSSLHelper->toP7b(chainPem);
             saveToFile(p7b, CHAIN_P7B_CERT(outputDir));
@@ -476,7 +479,7 @@ QSslCertificate CertificateManager::genCertificateCode(int type, const QString &
             extMessage.append(tr("PFX文件: %1\n").arg(FULL_BUNDLE_PFX(outputDir)));
         break;
     }
-    case CERT_IntermediateCA: { // 二级根证书
+    case CERT_SubordinateCA: { // 二级根证书
         QStringList extensions = {
             "basicConstraints=critical,CA:TRUE,pathlen:0",
             "keyUsage=critical,keyCertSign,cRLSign",
@@ -489,7 +492,7 @@ QSslCertificate CertificateManager::genCertificateCode(int type, const QString &
         }
 
         extensions.append("authorityKeyIdentifier=keyid:always,issuer:always"); // 必须指向根CA的subjectKeyIdentifier
-        extensions.append("crlDistributionPoints=URI:http://example.com/intermediate.crl"); // 中间CA的CRL分发点（推荐）
+        extensions.append("crlDistributionPoints=URI:http://example.com/subordinate.crl"); // 中间CA的CRL分发点（推荐）
         //extensions.append("certificatePolicies", "1.2.3.4"); // 证书策略OID
         sslCert = m_openSSLHelper->signCSR(validDays, csrPem,
                                         m_rootCACert,
@@ -502,16 +505,16 @@ QSslCertificate CertificateManager::genCertificateCode(int type, const QString &
         }
 
         // 保存证书信息到文件
-        saveToFile(publicKey.toPem(pass), CAINTER_PEM_PUBLICKEY(outputDir));
-        saveToFile(privateKey.toPem(pass), CAINTER_PEM_PRIVATEKEY(outputDir));
-        saveToFile(csrPem.toUtf8(), CAINTER_PEM_CSR(outputDir));
-        saveToFile(sslCert.toPem(), CAINTER_PEM_CERT(outputDir));
-        saveToFile(sslCert.toDer(), CAINTER_DER_CERT(outputDir));
+        saveToFile(publicKey.toPem(pass), CASUB_PEM_PUBLICKEY(outputDir));
+        saveToFile(privateKey.toPem(pass), CASUB_PEM_PRIVATEKEY(outputDir));
+        saveToFile(csrPem.toUtf8(), CASUB_PEM_CSR(outputDir));
+        saveToFile(sslCert.toPem(), CASUB_PEM_CERT(outputDir));
+        saveToFile(sslCert.toDer(), CASUB_DER_CERT(outputDir));
 
         // 更新二级根证书
         if (!sslCert.isNull()) {
-            m_interCACert = sslCert;
-            m_interCAKeyPair = keyPair;
+            m_subCACert = sslCert;
+            m_subCAKeyPair = keyPair;
         }
         break;
     }

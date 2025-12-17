@@ -60,17 +60,17 @@ public:
                         const QString &passphrase = "");
 
     // [证书链=一级根证书+二级根证书]
-    QString genChain(const QSslCertificate &interCACert, 
+    QByteArray genChain(const QSslCertificate &subCACert, 
                         const QSslCertificate &rootCACert);
-    QByteArray toP7b(const QString &chainPem);
+    QByteArray toP7b(const QByteArray &chainPem);
 
     // [PFX文件=证书链+终端私钥+终端证书] [密码=pfxpassword]
     QByteArray toPfx(const QSslCertificate &cert, 
                 const QSslKey &privateKey,
-                const QString &chainPem,
+                const QByteArray &chainPem,
                 const QString &passphrase = "");
 
-    QByteArray toDer(const QString &pemData);
+    QByteArray toDer(const QByteArray &pemData);
 
     // 签名与验证
     QByteArray digest(const QByteArray &data, const QString &hashAlgo);
@@ -181,7 +181,7 @@ public:
                         const QString &passphrase = "");
 
     // [证书链=一级根证书+二级根证书]
-    bool opensslGenChain(const QString &interCAPath, 
+    bool opensslGenChain(const QString &subCAPath, 
                         const QString &rootCAPath, 
                         const QString &outPath);
     bool opensslToP7b(const QString &chainPath, const QString &outPath);
