@@ -2,7 +2,7 @@
 ; 有关创建 Inno Setup 脚本文件的详细资料请查阅帮助文档！
 
 #define MyAppName "CetCryptoToolkit"
-#define MyAppVersion "2.0.2"
+#define MyAppVersion "2.1.0"
 #define MyAppPublisher "cetxiyuan"
 #define MyAppURL "https://blog.csdn.net/xiyuan255"
 #define MyAppExeName "CetCryptoToolkit.exe"
