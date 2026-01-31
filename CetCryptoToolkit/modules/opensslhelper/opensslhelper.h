@@ -43,6 +43,7 @@ public:
     QSslCertificate genSelfCert(int validDays,
                        const QString &subjectDN,
                        const QSslKey &privateKey,
+                       const QStringList &extensions,
                        const QString &hashAlgo = "sha256",
                        const QString &passphrase = "");
     // 生成证书请求

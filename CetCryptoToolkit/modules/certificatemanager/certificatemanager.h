@@ -11,6 +11,31 @@
 #define CAROOT_CUS_COMMONNAME       "CetXiyuan Custom Root CA Signing Authority"
 #define CAROOT_DEF_COMMONNAME       "CetXiyuan Root CA Signing Authority"  // 域名/服务器名
 #define CAROOT_DEF_DIR              QCoreApplication::applicationDirPath() + "/dir-certs"
+#define CASUB_DEF_DIR               CAROOT_DEF_DIR
+
+/**
+ * 一级根证书、二级根证书和终端证书的默认证书扩展字段
+ */
+#define CAROOT_DEF_CERTEXTS                                 \
+    "basicConstraints=critical,CA:TRUE,pathlen:1\n"         \
+    "keyUsage=critical,keyCertSign,cRLSign\n"               \
+    "subjectKeyIdentifier=hash\n"                           \
+    "authorityKeyIdentifier=keyid:always,issuer:always"
+
+#define CASUB_DEF_CERTEXTS                                  \
+    "basicConstraints=critical,CA:TRUE,pathlen:0\n"         \
+    "keyUsage=critical,keyCertSign,cRLSign\n"               \
+    "subjectKeyIdentifier=hash\n"                           \
+    "authorityKeyIdentifier=keyid:always,issuer:always"
+
+// subjectAltName=DNS:example.com,DNS:example1.com,IP:172.16.90.86,IP:127.0.0.1
+#define ENDENTITY_DEF_CERTEXTS                              \
+    "basicConstraints=critical,CA:FALSE\n"                  \
+    "keyUsage=digitalSignature,keyEncipherment\n"           \
+    "subjectKeyIdentifier=hash\n"                           \
+    "authorityKeyIdentifier=keyid:always,issuer:always\n"   \
+    "extendedKeyUsage=serverAuth,clientAuth\n"              \
+    "subjectAltName=DNS:example.com,IP:172.16.90.86"
 
 
 namespace Ui {
@@ -50,6 +75,7 @@ public:
                     const QString &caName);
     void setCommonName(const QString &commonName);
     void setValidDays(int validDays);
+    void setCertExts(const QString &certExts);
 
 private:
     void loadCA(QSslCertificate &sslCert, QPair<QSslKey, QSslKey> &keyPair, 

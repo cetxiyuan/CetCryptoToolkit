@@ -309,6 +309,7 @@ cleanup:
 QSslCertificate OpenSSLHelper::genSelfCert(int validDays,
                                         const QString &subjectDN,
                                         const QSslKey &privateKey,
+                                        const QStringList &extensions,
                                         const QString &hashAlgo,
                                         const QString &passphrase)
 {
@@ -326,7 +327,6 @@ QSslCertificate OpenSSLHelper::genSelfCert(int validDays,
     QByteArray pass = passphrase.toUtf8();
     QByteArray pemData = privateKey.toPem(pass);
     bool isEncrypted = pemData.contains("ENCRYPTED");
-    QStringList extensions;
     const char *digest_name = nullptr;
     int ret = 0;
     int key_type = EVP_PKEY_NONE;
@@ -408,14 +408,8 @@ QSslCertificate OpenSSLHelper::genSelfCert(int validDays,
     }
 
     // 9. 添加扩展
-    extensions << "basicConstraints=critical,CA:TRUE,pathlen:1"
-               << "keyUsage=critical,keyCertSign,cRLSign"
-               << "subjectKeyIdentifier=hash";
-    //if (EVP_PKEY_SM2 != key_type)
-        extensions << "authorityKeyIdentifier=keyid:always,issuer:always";
-
     if (!addExtensions(x509, x509, nullptr, extensions)) {
-        appendError("addExtensions() failed");
+        appendError(tr("addExtensions(%1) failed").arg(extensions.join(" ")));
         goto cleanup;
     }
 
@@ -574,7 +568,7 @@ QString OpenSSLHelper::genCSR(const QString &subjectDN,
 
     // 7. 添加扩展
     if (!extensions.isEmpty() && !addExtensions(nullptr, nullptr, req, extensions)) {
-        appendError("addExtensions() failed");
+        appendError(tr("genCSR:addExtensions(%1) failed").arg(extensions.join(" ")));
         goto cleanup;
     }
 
@@ -755,7 +749,7 @@ QSslCertificate OpenSSLHelper::signCSR(int validDays, const QString &csrPem,
 
     // 10. 添加扩展
     if (!extensions.isEmpty() && !addExtensions(qcertToX509(caCert), cert, nullptr, extensions)) {
-        appendError("addExtensions() failed");
+        appendError(tr("signCSR:addExtensions(%1) failed").arg(extensions.join(" ")));
         goto cleanup;
     }
 
