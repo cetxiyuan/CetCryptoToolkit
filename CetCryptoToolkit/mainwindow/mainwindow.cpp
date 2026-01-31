@@ -235,15 +235,19 @@ void MainWindow::on_certTypeComboBox_currentTextChanged(const QString &arg1)
     if (arg1.contains(TEXT_EndEntity)) {
         m_certManager->setCommonName("example.com");
         m_certManager->setValidDays(365);
+        m_certManager->setCertExts(ENDENTITY_DEF_CERTEXTS);
     } else if (arg1.contains(TEXT_SubordinateCA)) {
         m_certManager->setCommonName(CASUB_DEF_COMMONNAME);
         m_certManager->setValidDays(365 * 5);
+        m_certManager->setCertExts(CASUB_DEF_CERTEXTS);
     } else if (arg1.contains(TEXT_RootCACustom)) {
         m_certManager->setCommonName(CAROOT_CUS_COMMONNAME);
         m_certManager->setValidDays(365 * 20);
+        m_certManager->setCertExts(CAROOT_DEF_CERTEXTS);
     }  else if (arg1.contains(TEXT_RootCACetXiyuan)) {
         m_certManager->setCommonName(CAROOT_DEF_COMMONNAME);
         m_certManager->setValidDays(365 * 20);
+        m_certManager->setCertExts(CAROOT_DEF_CERTEXTS);
     }
 }
 
