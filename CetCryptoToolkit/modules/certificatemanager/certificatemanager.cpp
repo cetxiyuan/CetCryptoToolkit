@@ -533,15 +533,23 @@ QSslCertificate CertificateManager::genCertificateCode(int type, const QString &
     }
     case CERT_RootCACustom:
     case CERT_RootCACetXiyuan: { // 一级根证书
-        QString caname = (CERT_RootCACetXiyuan == type)
-                          ? CAROOT_DEF_CANAME : CAROOT_CUS_CANAME;
-        sslCert = m_openSSLHelper->genSelfCert(validDays, 
+        QString caname;
+        if (CERT_RootCACetXiyuan == type) {
+            caname = CAROOT_DEF_CANAME;
+            sslCert = m_openSSLHelper->genSelfCert(validDays, 
                             tr("/C=%1/ST=%2/L=%3/O=%4/OU=%5/emailAddress=%6/CN=%7")
                                 .arg(CAROOT_DEF_COUNTRY, CAROOT_DEF_STATE, CAROOT_DEF_LOCALITY)
                                 .arg(CAROOT_DEF_ORGANIZATION, CAROOT_DEF_ORGANIZATIONUNIT)
                                 .arg(CAROOT_DEF_EMAILADDRESS, CAROOT_DEF_COMMONNAME), 
                             privateKey, extensions, hashAlgo,
                             passphrase);
+        } else {
+            caname = CAROOT_CUS_CANAME;
+            sslCert = m_openSSLHelper->genSelfCert(validDays, 
+                            subjectDN, 
+                            privateKey, extensions, hashAlgo,
+                            passphrase);
+        }
         if (sslCert.isNull()) {
             qCritical() << "sslCert.isNull():" << m_openSSLHelper->lastErrors();
             return sslCert;
