@@ -2,3 +2,4 @@
 /openssl-*
 /.*
 !.gitignore
+!.gitattributes

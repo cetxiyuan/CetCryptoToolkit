@@ -1,0 +1,42 @@
+# 自动处理文本文件的换行符
+* text=auto
+
+# 强制所有 shell 脚本文件使用 LF 换行符
+*.sh eol=lf
+
+# 强制所有 Windows 批处理脚本文件使用 CRLF 换行符
+*.bat eol=crlf
+
+# 强制所有文本文件使用 UTF-8 编码
+*.md text encoding=utf-8
+*.txt text encoding=utf-8
+
+# 使用 Git LFS 来管理大文件（如图像和视频）
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+
+# 指定合并策略，避免在合并时冲突
+*.lock merge=ours
+
+# 对 CSS 文件使用 union 合并策略，保留两个版本的内容
+*.css merge=union
+
+# 为 PDF 文件指定自定义 diff 工具
+*.pdf diff=pdf
+
+# 让 Git 确认特定文件为二进制文件（不进行行尾转换）
+*.zip binary
+*.exe binary
+*.dll binary
+
+# 对某些文件类型进行自定义的 diff 比较（例如 Word 文档）
+*.docx diff=word
+*.pptx diff=word
+
+# 为日志文件指定过滤器（例如进行压缩处理）
+*.log filter=compress
+
+# 强制所有的 Python 文件使用 LF 换行符
+*.py eol=lf
+
