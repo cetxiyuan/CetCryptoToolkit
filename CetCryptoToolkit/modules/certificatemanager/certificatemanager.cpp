@@ -26,7 +26,7 @@
 #define CASUB_CANAME                "Generic"               // 二级根证书名
 
 #define CAROOT                      "rootCA"                // 一级根证书标识
-#define CASUB                       "subCA"               // 二级根证书标识
+#define CASUB                       "subCA"                 // 二级根证书标识
 
 #define CA_PEM_CERT(dir, tier, caname)          tr("%1/%2-%3.crt.pem").arg(dir, tier, caname)
 #define CA_PEM_PUBLICKEY(dir, tier, caname)     tr("%1/%2-%3.pub.pem").arg(dir, tier, caname)
@@ -118,22 +118,37 @@ CertificateManager::CertificateManager(OpenSSLHelper *openSSLHelper, QWidget *pa
         QDir().mkdir(CAROOT_DEF_DIR);
 
     // 加载一级根证书
-    if (!QFile::exists(CAROOT_PEM_CERT(CAROOT_DEF_DIR, CAROOT_DEF_CANAME))) {
+    if (QFile::exists(CAROOT_PEM_CERT(CAROOT_DEF_DIR, CAROOT_DEF_CANAME))) {
+         /* 加载 rootCA-CetXiyuan.crt */
+        loadCA(m_rootCACert, m_rootCAKeyPair, CAROOT_DEF_DIR, CAROOT, CAROOT_DEF_CANAME);
+    } else if (QFile::exists(CAROOT_PEM_CERT(CAROOT_DEF_DIR, CAROOT_CUS_CANAME))) {
+         /* 加载 rootCA-Custom.crt */
+        loadCA(m_rootCACert, m_rootCAKeyPair, CAROOT_DEF_DIR, CAROOT, CAROOT_CUS_CANAME);
+    } else {
+        /* 都不存在，2 秒后自动生成 rootCA-CetXiyuan.crt */
         QTimer::singleShot(2000, this, [=]() {
                 setCommonName(CAROOT_DEF_COMMONNAME);
                 genCertificate(CERT_RootCACetXiyuan, CAROOT_DEF_DIR);
             });
-    } else {
-        loadCA(m_rootCACert, m_rootCAKeyPair, CAROOT_DEF_DIR, CAROOT, CAROOT_DEF_CANAME);
     }
 
     // 加载二级根证书
     if (QFile::exists(CASUB_PEM_CERT(CASUB_DEF_DIR)))
         loadCA(m_subCACert, m_subCAKeyPair, CASUB_DEF_DIR, CASUB, CASUB_CANAME);
+
+    QTimer::singleShot(1000, this, [=]() {
+        if (!m_subCACert.isNull())
+            emit issuerChanged(CERT_SubordinateCA);
+        else if (QFile::exists(CAROOT_PEM_CERT(CAROOT_DEF_DIR, CAROOT_DEF_CANAME)))
+            emit issuerChanged(CERT_RootCACetXiyuan);
+        else if (QFile::exists(CAROOT_PEM_CERT(CAROOT_DEF_DIR, CAROOT_CUS_CANAME)))
+            emit issuerChanged(CERT_RootCACustom);
+    });
 }
 
 CertificateManager::~CertificateManager()
 {
+    delete m_openSSLHelper;
     delete ui;
 }
 
@@ -381,12 +396,9 @@ QSslCertificate CertificateManager::genCertificateCode(int type, const QString &
     QString hashAlgo = ui->hashAlgoComboBox->currentText();
     int validDays = ui->validDaysSpinBox->value();
 
-    QString keySize;
-    if (keyAlgo.contains("RSA"))
-        keySize = ui->rsaKeyLengthComboBox->currentText();
-    else
-        keySize = ui->eccCurveComboBox->currentText();
-
+    QString keySize = keyAlgo.contains("RSA")
+                      ? ui->rsaKeyLengthComboBox->currentText()
+                      : ui->eccCurveComboBox->currentText();
     if (keyAlgo.contains("SM2"))
         hashAlgo = "SM3";
 
@@ -569,6 +581,13 @@ QSslCertificate CertificateManager::genCertificateCode(int type, const QString &
         break;
     }
     default: break;
+    }
+
+    if (CERT_EndEntity != type) {
+        if (!m_subCACert.isNull())
+            emit issuerChanged(CERT_SubordinateCA);
+        else
+            emit issuerChanged(type);
     }
 
     return sslCert;

@@ -64,6 +64,10 @@ MainWindow::MainWindow(QWidget *parent)
     ui->certTypeComboBox->addItem(tr(TEXT_RootCACustom));
     ui->certTypeComboBox->addItem(tr(TEXT_RootCACetXiyuan));
     ui->certOutputDirLineEdit->setText(CAROOT_DEF_DIR);
+    ui->issuerTypeComboBox->addItem(tr(TEXT_SubordinateCA));
+    ui->issuerTypeComboBox->addItem(tr(TEXT_RootCACustom));
+    ui->issuerTypeComboBox->addItem(tr(TEXT_RootCACetXiyuan));
+    ui->issuerTypeComboBox->setEnabled(false);
 
     // 非对称加密算法相关
     ui->aeaDigestComboBox->addItems(OpenSSLHelper::supportDigestNames());
@@ -106,6 +110,21 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->seaDecryptFileCheckBox, &QCheckBox::clicked, 
         ui->seaDecryptToolButton, &QToolButton::setVisible);
 
+    connect(m_certManager, &CertificateManager::issuerChanged, 
+        this, [=](int type) {
+            switch (type) {
+            case CertificateManager::CERT_SubordinateCA:
+                ui->issuerTypeComboBox->setCurrentIndex(0);
+                break;
+            case CertificateManager::CERT_RootCACustom:
+                ui->issuerTypeComboBox->setCurrentIndex(1);
+                break;
+            case CertificateManager::CERT_RootCACetXiyuan:
+                ui->issuerTypeComboBox->setCurrentIndex(2);
+                break;
+            default: break;
+            }
+        });
 }
 
 MainWindow::~MainWindow()

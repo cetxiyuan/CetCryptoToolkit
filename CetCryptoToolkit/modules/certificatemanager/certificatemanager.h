@@ -35,7 +35,7 @@
     "subjectKeyIdentifier=hash\n"                           \
     "authorityKeyIdentifier=keyid:always,issuer:always\n"   \
     "extendedKeyUsage=serverAuth,clientAuth\n"              \
-    "subjectAltName=DNS:example.com,IP:172.16.90.86"
+    "subjectAltName=DNS:example.com,IP:127.0.0.1"
 
 
 namespace Ui {
@@ -76,6 +76,9 @@ public:
     void setCommonName(const QString &commonName);
     void setValidDays(int validDays);
     void setCertExts(const QString &certExts);
+
+Q_SIGNALS:
+    void issuerChanged(int type);
 
 private:
     void loadCA(QSslCertificate &sslCert, QPair<QSslKey, QSslKey> &keyPair, 
