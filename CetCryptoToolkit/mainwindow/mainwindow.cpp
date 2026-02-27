@@ -246,7 +246,7 @@ QByteArray MainWindow::getData(bool isFile, const QString &fileName, bool inBase
 void MainWindow::on_outputDirToolButton_clicked()
 {
     QString directory = QFileDialog::getExistingDirectory(this, tr("证书输出目录"), 
-        ui->outputDirToolButton->text());
+        ui->certOutputDirLineEdit->text());
     if (!directory.isEmpty()) {
         ui->certOutputDirLineEdit->setText(directory);
     }

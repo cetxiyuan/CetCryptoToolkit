@@ -2,7 +2,7 @@
 #define VERSION_H
 
 /* 是否为正式版 */
-#define IS_RELEASE_VERSION      ( 1 )
+#define IS_RELEASE_VERSION      ( 0 )
 
 /* 图标 */
 #define APP_NAME                "CetCryptoToolkit"
@@ -22,7 +22,7 @@
 #define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK220.G210)" // "(2026-02-08)"
 
 /* 补丁包号(月+日+序号) */
-#define PATCH_PACKET            "2051"
+#define PATCH_PACKET            "2271"
 
 /* 版本宏定义 */
 #define VERSION_CHECK(major, minor, micro)  (((major)<<16)|((minor)<<8)|((micro)<<0))
