@@ -155,6 +155,7 @@ void MainWindow::initFeaturesPlugin()
         int result = 0;
         bool activated = false;
         static bool auto_timing_active = true;
+        static int auto_timing_msec = 30 * 60 * 1000; // 30 分钟
         if (m_cetLicenseInterface) {
             result = (auto_timing_active ? m_cetLicenseInterface->activate()
                                          : m_cetLicenseInterface->activateWindow());
@@ -180,8 +181,10 @@ void MainWindow::initFeaturesPlugin()
         }
     timing_active:
         auto_timing_active = false;
-        QTimer::singleShot(5 * 24 * 3600 * 1000, this, [=]() {  /* 5 天检查一次 是否到期 */
+        /* 第一次(30)分钟激活 第二次(30*4=120)分钟 依次类推 */
+        QTimer::singleShot(auto_timing_msec, this, [=]() {
             auto_timing_active = true;
+            auto_timing_msec = auto_timing_msec * 4;
             emit ui->licenseMenu->actions().first()->triggered(true);
         });
     });
