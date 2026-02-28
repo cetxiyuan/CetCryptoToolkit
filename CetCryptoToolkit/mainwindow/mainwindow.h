@@ -27,6 +27,9 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+protected:
+    void keyPressEvent(QKeyEvent *event);
+
 private slots:
     void on_outputDirToolButton_clicked();
 

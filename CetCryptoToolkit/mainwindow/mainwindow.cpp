@@ -10,6 +10,8 @@
 #include <QTextCodec>
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QKeyEvent>
+#include <QDesktopServices>
 #include <QProcess>
 
 #include <QDebug>
@@ -637,6 +639,19 @@ void MainWindow::on_aes128cmacPushButton_clicked()
         QMessageBox::critical(this, tr("错误"), 
             tr("计算失败(%1)！\t").arg(m_openSSLHelper->lastErrors()));
     }
+}
 
+void MainWindow::keyPressEvent(QKeyEvent *event)
+{
+    switch (event->key()) {
+        case Qt::Key_F2: {
+            QString opendir = QDir::currentPath();
+            QDesktopServices::openUrl(QUrl::fromLocalFile(opendir));
+            break;
+        }
+        default: break;
+    }
+
+    QMainWindow::keyPressEvent(event);
 }
 
