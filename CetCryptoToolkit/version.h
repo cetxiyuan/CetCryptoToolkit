@@ -2,7 +2,7 @@
 #define VERSION_H
 
 /* 是否为正式版 */
-#define IS_RELEASE_VERSION      ( 0 )
+#define IS_RELEASE_VERSION      ( 1 )
 
 /* 图标 */
 #define APP_NAME                "CetCryptoToolkit"
@@ -10,7 +10,7 @@
 
 /* 版本号定义 */
 #define VER_MAJOR               2       /* 主版本号 */
-#define VER_MINOR               2       /* 次版本号 */
+#define VER_MINOR               3       /* 次版本号 */
 #define VER_MICRO               0       /* 小版本号 */
 
 /* 正式版发布日期 
@@ -19,7 +19,7 @@
     CCTK100: CetCryptoToolkit 100
     EB17: E(24年, A-20年)B(11月 A-10月 B-11月 C-12月)17(06日 17-11(月)=06)
 */
-#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK220.G210)" // "(2026-02-08)"
+#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK230.G309)" // "(2026-03-06)"
 
 /* 补丁包号(月+日+序号) */
 #define PATCH_PACKET            "2271"
