@@ -202,10 +202,11 @@ void MainWindow::initFeaturesPlugin()
         }
     timing_active:
         auto_timing_active = false;
-        /* 第一次(30)分钟激活 第二次(30*4=120)分钟 依次类推 */
+        /* 第一次(30)分钟激活 第二次(30*2=60)分钟 依次类推 */
         QTimer::singleShot(auto_timing_msec, this, [=]() {
             auto_timing_active = true;
-            auto_timing_msec = auto_timing_msec * 4;
+            auto_timing_msec = auto_timing_msec * 2;
+            qWarning() << "[license:activate] The next activation time:" << auto_timing_msec;
             emit ui->licenseMenu->actions().first()->triggered(true);
         });
     });
