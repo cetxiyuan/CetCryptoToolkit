@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API 参考手册</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 16px; line-height: 1.75; color: #24292e;
+    background: #f6f8fa; padding: 24px 16px;
+  }
+  .container {
+    max-width: 860px; margin: 0 auto;
+    background: #fff; border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    padding: 40px 48px; position: relative;
+  }
+  .copy-btn {
+    position: absolute; top: 20px; right: 20px;
+    background: #0969da; color: #fff; border: none;
+    padding: 6px 16px; border-radius: 6px; cursor: pointer;
+    font-size: 14px; transition: background .2s;
+  }
+  .copy-btn:hover { background: #0550ae; }
+  .copy-btn.copied { background: #1a7f37; }
+  h1 { font-size: 2em; border-bottom: 2px solid #e1e4e8; padding-bottom: 12px; margin-bottom: 24px; color: #0d1117; }
+  h2 { font-size: 1.4em; margin: 32px 0 12px; color: #0d1117; border-left: 4px solid #0969da; padding-left: 10px; }
+  h3 { font-size: 1.15em; margin: 24px 0 8px; color: #24292e; }
+  p { margin: 10px 0; }
+  blockquote {
+    border-left: 4px solid #d0d7de; margin: 16px 0;
+    padding: 8px 16px; background: #f6f8fa; color: #57606a;
+    border-radius: 0 4px 4px 0;
+  }
+  blockquote p { margin: 4px 0; }
+  pre {
+    background: #f6f8fa; border: 1px solid #d0d7de;
+    border-radius: 6px; padding: 16px; overflow-x: auto;
+    margin: 12px 0; font-size: 14px; line-height: 1.6;
+  }
+  code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.9em;
+  }
+  p code, li code {
+    background: #f0f2f4; border: 1px solid #d0d7de;
+    border-radius: 4px; padding: 1px 5px; color: #c0392b;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 15px; }
+  th { background: #f0f2f4; font-weight: 600; }
+  th, td { border: 1px solid #d0d7de; padding: 8px 14px; text-align: left; }
+  tr:nth-child(even) td { background: #f9fafb; }
+  ul, ol { padding-left: 24px; margin: 10px 0; }
+  li { margin: 4px 0; }
+  hr { border: none; border-top: 1px solid #e1e4e8; margin: 28px 0; }
+  strong { color: #0d1117; }
+  .note {
+    background: #ddf4ff; border: 1px solid #54aeff;
+    border-radius: 6px; padding: 10px 16px; margin: 12px 0;
+    color: #0550ae; font-size: 15px;
+  }
+  .warn {
+    background: #fff8c5; border: 1px solid #d4a72c;
+    border-radius: 6px; padding: 10px 16px; margin: 12px 0;
+    color: #7d4e00; font-size: 15px;
+  }
+  .footer {
+    text-align: center; margin-top: 40px; padding-top: 16px;
+    border-top: 1px solid #e1e4e8; color: #57606a; font-size: 14px;
+  }
+  @media (max-width: 640px) {
+    .container { padding: 24px 16px; }
+    .copy-btn { position: static; display: block; margin-bottom: 16px; }
+    h1 { font-size: 1.5em; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <button class="copy-btn" id="copyBtn" onclick="copyContent()">Copy</button>
+  <div id="main-content">
+
+<h1>API 参考手册</h1>
+
+<blockquote>
+<p>适用版本：CetCryptoToolkit v2.3.x</p>
+<p>核心类：<code>OpenSSLHelper</code></p>
+<p>文件：<code>modules/opensslhelper/opensslhelper.h/cpp</code></p>
+</blockquote>
+
+<hr>
+
+<h2>一、概述</h2>
+
+<p><code>OpenSSLHelper</code> 是 CetCryptoToolkit 中所有密码学操作的唯一封装层，直接调用 OpenSSL 3.x C API。所有上层模块均通过此类完成密码学运算。</p>
+
+<hr>
+
+<h2>二、初始化</h2>
+
+<table>
+<thead><tr><th>方法</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>static void initOpenSSL()</code></td><td>初始化 OpenSSL，加载所有算法。单例模式，构造函数自动调用</td></tr>
+<tr><td><code>static void cleanupOpenSSL()</code></td><td>清理全局资源，析构函数自动调用</td></tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2>三、密钥对生成</h2>
+
+<h3><code>genKeyPair()</code></h3>
+
+<pre><code class="language-cpp">QPair&lt;QSslKey, QSslKey&gt; genKeyPair(
+    const QString &amp;algorithm,       // "RSA" / "EC" / "SM2"
+    const QString &amp;keySize,         // RSA: "2048-bit"; EC: "prime256v1"; SM2: 忽略
+    const QString &amp;passphrase       // 私钥加密密码，空字符串表示不加密
+);</code></pre>
+
+<p>返回 <code>QPair&lt;公钥, 私钥&gt;</code>，失败时返回空 QSslKey。</p>
+
+<p><strong>支持的算法：</strong></p>
+<ul>
+<li>RSA：512 / 1024 / 2048 / 3072 / 4096 / 8192-bit</li>
+<li>EC：prime256v1 / secp256k1 / secp384r1 / secp521r1</li>
+<li>SM2：固定 256-bit 曲线</li>
+</ul>
+
+<hr>
+
+<h2>四、证书操作</h2>
+
+<h3><code>genSelfCert()</code> — 自签证书</h3>
+
+<pre><code class="language-cpp">QSslCertificate genSelfCert(
+    int validDays,              // 有效期天数
+    const QString &amp;subjectDN,   // "/C=CN/O=CetXiyuan/CN=Root CA"
+    const QSslKey &amp;privateKey,
+    const QStringList &amp;extensions,
+    const QString &amp;hashAlgo,    // "sha256" / "sm3"
+    const QString &amp;passphrase
+);</code></pre>
+
+<h3><code>genCSR()</code> / <code>signCSR()</code> — CSR 签发</h3>
+
+<pre><code class="language-cpp">QString genCSR(subjectDN, privateKey, extensions, passphrase);
+QSslCertificate signCSR(validDays, csrPem, caCert, caPrivateKey, extensions, hashAlgo, passphrase);</code></pre>
+
+<h3>证书格式转换</h3>
+
+<table>
+<thead><tr><th>方法</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>genChain(subCACert, rootCACert)</code></td><td>拼接证书链 PEM</td></tr>
+<tr><td><code>toP7b(chainPem)</code></td><td>PEM 转 PKCS#7（.p7b）</td></tr>
+<tr><td><code>toPfx(cert, privateKey, chainPem, passphrase)</code></td><td>打包 PKCS#12（.pfx）</td></tr>
+<tr><td><code>toDer(pemData)</code></td><td>PEM 转 DER</td></tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2>五、摘要与签名</h2>
+
+<h3><code>digest()</code> — 计算摘要</h3>
+
+<pre><code class="language-cpp">QByteArray digest(const QByteArray &amp;data, const QString &amp;hashAlgo);</code></pre>
+
+<p>支持：MD5 / SHA1 / SHA224 / SHA256 / SHA384 / SHA512 / SHA3系列 / SM3</p>
+
+<h3><code>signData()</code> / <code>signVerify()</code> — 签名验签</h3>
+
+<pre><code class="language-cpp">QByteArray signData(data, privateKey, hashAlgo, passphrase, userId);
+bool signVerify(data, signature, publicKey, hashAlgo, userId);</code></pre>
+
+<p>SM2 签名需传入 <code>userId</code>（默认 <code>"1234567812345678"</code>）。</p>
+
+<hr>
+
+<h2>六、非对称加解密</h2>
+
+<pre><code class="language-cpp">static QByteArray asymmetricEncrypt(data, publicKey);
+static QByteArray asymmetricDecrypt(data, privateKey);</code></pre>
+
+<p>支持 RSA / EC / SM2。</p>
+
+<hr>
+
+<h2>七、AES 对称加解密</h2>
+
+<h3><code>aesEncrypt()</code> / <code>aesDecrypt()</code></h3>
+
+<pre><code class="language-cpp">static QByteArray aesEncrypt(plaintext, key, mode, iv);
+static QByteArray aesDecrypt(ciphertext, key, mode);</code></pre>
+
+<p><strong>密钥长度</strong>：16/24/32 字节 = AES-128/192/256</p>
+<p><strong>密文格式</strong>：</p>
+<ul>
+<li>GCM：<code>IV(12B) + 密文 + Tag(16B)</code></li>
+<li>其他：<code>IV(16B) + 密文</code></li>
+</ul>
+
+<div class="note">✅ AES 解密无需传入 IV，自动从密文前缀解析。</div>
+
+<h3>辅助方法</h3>
+
+<table>
+<thead><tr><th>方法</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>aes128GenerateCMAC(data, key)</code></td><td>计算 CMAC 消息认证码</td></tr>
+<tr><td><code>aesGenerateKey(keySize=32)</code></td><td>生成随机密钥</td></tr>
+<tr><td><code>aesGenerateIV(mode)</code></td><td>生成随机 IV</td></tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2>八、SM4 对称加解密</h2>
+
+<pre><code class="language-cpp">QByteArray sm4Encrypt(plaintext, key, mode, iv);
+QByteArray sm4Decrypt(ciphertext, key, mode, iv);</code></pre>
+
+<p>密钥固定 16 字节（128-bit）。</p>
+
+<div class="warn">⚠️ SM4 解密必须手动传入 IV，与 AES 不同。</div>
+
+<hr>
+
+<h2>九、SM2 辅助方法</h2>
+
+<table>
+<thead><tr><th>方法</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>sm2PubKeyToDer(rawPubKey)</code></td><td>裸公钥（65字节）转 DER</td></tr>
+<tr><td><code>sm2SignToDer(rawSign)</code></td><td>裸签名（64字节）转 DER</td></tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2>十、枚举与名称转换</h2>
+
+<h3>算法名称列表（用于 UI）</h3>
+
+<pre><code class="language-cpp">static QStringList supportKeyAlgorithmNames();   // RSA/EC/SM2
+static QStringList supportDigestNames();          // MD5/SHA1/.../SM3
+static QStringList supportECCurveNames();         // prime256v1/secp384r1...
+static QStringList supportRSABitsNames();         // 512-bit/2048-bit...
+static QStringList supportSymModesNames();        // ECB/CBC/GCM/CTR</code></pre>
+
+<h3>名称转数值</h3>
+
+<pre><code class="language-cpp">static int keyAlgorithmFromName(name);   // EVP_PKEY_* 常量
+static int ecCurveFromName(name);         // NID_* 常量
+static int rsaBitsFromName(name);         // 位数整数
+static SymMode symModeFromName(name);     // SymMode 枚举</code></pre>
+
+<hr>
+
+<h2>十一、错误处理</h2>
+
+<pre><code class="language-cpp">QString lastErrors() const;   // 获取错误信息（含 OpenSSL 原始错误）
+void clearErrors();           // 清空错误队列</code></pre>
+
+<hr>
+
+<h2>十二、使用示例</h2>
+
+<h3>RSA 密钥对 + 签名验签</h3>
+
+<pre><code class="language-cpp">OpenSSLHelper helper;
+auto kp = helper.genKeyPair("RSA", "2048-bit");
+QByteArray sig = helper.signData("data", kp.second, "sha256");
+bool ok = helper.signVerify("data", sig, kp.first, "sha256");</code></pre>
+
+<h3>AES-256-GCM 加解密</h3>
+
+<pre><code class="language-cpp">QByteArray key = OpenSSLHelper::aesGenerateKey(32);
+QByteArray iv  = OpenSSLHelper::aesGenerateIV(OpenSSLHelper::SYM_GCM);
+QByteArray cipher = OpenSSLHelper::aesEncrypt("plaintext", key, OpenSSLHelper::SYM_GCM, iv);
+QByteArray plain  = OpenSSLHelper::aesDecrypt(cipher, key, OpenSSLHelper::SYM_GCM);</code></pre>
+
+<h3>SM2 签名</h3>
+
+<pre><code class="language-cpp">auto kp = helper.genKeyPair("SM2");
+QByteArray sig = helper.signData("data", kp.second, "sm3", "", "1234567812345678");
+bool ok = helper.signVerify("data", sig, kp.first, "sm3", "1234567812345678");</code></pre>
+
+<h3>三级 PKI 证书</h3>
+
+<pre><code class="language-cpp">auto rootKP = helper.genKeyPair("RSA", "2048-bit");
+auto rootCert = helper.genSelfCert(3650, "/C=CN/O=CetXiyuan/CN=Root CA",
+    rootKP.second, {"basicConstraints=critical,CA:TRUE,pathlen:1"}, "sha256");
+
+auto subKP = helper.genKeyPair("RSA", "2048-bit");
+QString subCsr = helper.genCSR("/C=CN/O=CetXiyuan/CN=Sub CA", subKP.second, {});
+auto subCert = helper.signCSR(1825, subCsr, rootCert, rootKP.second, {}, "sha256");
+
+auto endKP = helper.genKeyPair("RSA", "2048-bit");
+QString endCsr = helper.genCSR("/C=CN/O=CetXiyuan/CN=example.com", endKP.second,
+    {"subjectAltName=DNS:example.com"});
+auto endCert = helper.signCSR(365, endCsr, subCert, subKP.second, {}, "sha256");
+
+QByteArray pfx = helper.toPfx(endCert, endKP.second,
+    helper.genChain(subCert, rootCert), "password");</code></pre>
+
+<hr>
+
+<p><em>本手册由 CetXiyuan（璟·汐源忆醉）编写维护。</em></p>
+
+  </div>
+  <div class="footer">📄 文档转换 · 笔名 CetXiyuan</div>
+</div>
+
+<script>
+function copyContent() {
+  var el = document.getElementById('main-content');
+  var text = el.innerText || el.textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById('copyBtn');
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+</script>
+</body>
+</html>

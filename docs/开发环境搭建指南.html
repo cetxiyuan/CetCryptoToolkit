@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开发环境搭建指南</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 16px; line-height: 1.75; color: #24292e;
+    background: #f6f8fa; padding: 24px 16px;
+  }
+  .container {
+    max-width: 860px; margin: 0 auto;
+    background: #fff; border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    padding: 40px 48px;
+    position: relative;
+  }
+  .copy-btn {
+    position: absolute; top: 20px; right: 20px;
+    background: #0969da; color: #fff; border: none;
+    padding: 6px 16px; border-radius: 6px; cursor: pointer;
+    font-size: 14px; transition: background .2s;
+  }
+  .copy-btn:hover { background: #0550ae; }
+  .copy-btn.copied { background: #1a7f37; }
+  h1 { font-size: 2em; border-bottom: 2px solid #e1e4e8; padding-bottom: 12px; margin-bottom: 24px; color: #0d1117; }
+  h2 { font-size: 1.4em; margin: 32px 0 12px; color: #0d1117; border-left: 4px solid #0969da; padding-left: 10px; }
+  h3 { font-size: 1.15em; margin: 24px 0 8px; color: #24292e; }
+  p { margin: 10px 0; }
+  blockquote {
+    border-left: 4px solid #d0d7de; margin: 16px 0;
+    padding: 8px 16px; background: #f6f8fa; color: #57606a;
+    border-radius: 0 4px 4px 0;
+  }
+  blockquote p { margin: 4px 0; }
+  pre {
+    background: #f6f8fa; border: 1px solid #d0d7de;
+    border-radius: 6px; padding: 16px; overflow-x: auto;
+    margin: 12px 0; font-size: 14px; line-height: 1.6;
+  }
+  code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.9em;
+  }
+  p code, li code {
+    background: #f0f2f4; border: 1px solid #d0d7de;
+    border-radius: 4px; padding: 1px 5px; color: #c0392b;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 15px; }
+  th { background: #f0f2f4; font-weight: 600; }
+  th, td { border: 1px solid #d0d7de; padding: 8px 14px; text-align: left; }
+  tr:nth-child(even) td { background: #f9fafb; }
+  ul, ol { padding-left: 24px; margin: 10px 0; }
+  li { margin: 4px 0; }
+  hr { border: none; border-top: 1px solid #e1e4e8; margin: 28px 0; }
+  strong { color: #0d1117; }
+  .footer {
+    text-align: center; margin-top: 40px; padding-top: 16px;
+    border-top: 1px solid #e1e4e8; color: #57606a; font-size: 14px;
+  }
+  @media (max-width: 640px) {
+    .container { padding: 24px 16px; }
+    .copy-btn { position: static; display: block; margin-bottom: 16px; }
+    h1 { font-size: 1.5em; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <button class="copy-btn" id="copyBtn" onclick="copyContent()">Copy</button>
+  <div id="main-content">
+
+<h1>开发环境搭建指南</h1>
+
+<blockquote>
+<p>适用版本：CetCryptoToolkit v2.3.x</p>
+<p>平台：Windows 7 / 10 / 11</p>
+</blockquote>
+
+<hr>
+
+<h2>一、环境要求</h2>
+
+<table>
+<thead><tr><th>组件</th><th>版本</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>Qt</td><td><strong>5.15.2</strong></td><td>必须使用此版本</td></tr>
+<tr><td>编译器</td><td><strong>MinGW 32-bit</strong></td><td>必须是 32-bit，不可用 64-bit 或 MSVC</td></tr>
+<tr><td>OpenSSL</td><td>3.x（3.0.18）</td><td>已预置在 <code>libs/</code> 目录，无需单独安装</td></tr>
+<tr><td>CMake</td><td>3.16+（可选）</td><td>使用 CMake 构建时需要</td></tr>
+<tr><td>Git</td><td>任意版本</td><td>代码管理</td></tr>
+</tbody>
+</table>
+
+<blockquote>
+<p>⚠️ <strong>关键约束</strong>：项目链接的 OpenSSL DLL 为 32-bit 版本，编译器必须选择 MinGW <strong>32-bit</strong>，否则链接时会报架构不匹配错误。</p>
+</blockquote>
+
+<hr>
+
+<h2>二、Qt 安装</h2>
+
+<h3>2.1 下载 Qt 在线安装器</h3>
+
+<p>从 Qt 官网下载 <code>qt-unified-windows-x86-online.exe</code>，或使用离线安装包 <code>qt-opensource-windows-x86-5.15.2.exe</code>。</p>
+
+<h3>2.2 安装时选择组件</h3>
+
+<p>在组件选择界面，展开 <strong>Qt 5.15.2</strong>，勾选：</p>
+
+<pre><code>Qt 5.15.2
+  ✅ MinGW 8.1.0 32-bit        ← 必选
+  ✅ Qt Network                 ← 必选（提供 QSslKey / QSslCertificate）
+  ✅ Qt Widgets                 ← 必选
+
+开发工具
+  ✅ MinGW 8.1.0 32-bit        ← 编译器本体
+  ✅ Qt Creator                 ← 推荐 IDE</code></pre>
+
+<h3>2.3 验证安装</h3>
+
+<pre><code class="language-bash"># 在 Qt Creator 的 Terminal 或 MinGW 命令行中执行
+qmake --version
+# 期望输出：QMake version 3.1 / Using Qt version 5.15.2 in ...mingw81_32...</code></pre>
+
+<hr>
+
+<h2>三、获取源码</h2>
+
+<pre><code class="language-bash">git clone &lt;仓库地址&gt;
+cd CetCryptoToolkit</code></pre>
+
+<hr>
+
+<h2>四、构建项目</h2>
+
+<h3>4.1 qmake 构建（推荐）</h3>
+
+<pre><code class="language-bash"># 进入源码子目录
+cd CetCryptoToolkit
+
+# 生成 Makefile
+qmake CetCryptoToolkit.pro -spec win32-g++ CONFIG+=release
+
+# 编译（-j4 表示 4 线程并行）
+mingw32-make -j4</code></pre>
+
+<p>Debug 构建：</p>
+
+<pre><code class="language-bash">qmake CetCryptoToolkit.pro -spec win32-g++ CONFIG+=debug
+mingw32-make -j4</code></pre>
+
+<h3>4.2 Qt Creator 构建（推荐新手）</h3>
+
+<ol>
+<li>打开 Qt Creator → <strong>文件</strong> → <strong>打开文件或项目</strong></li>
+<li>选择 <code>CetCryptoToolkit/CetCryptoToolkit.pro</code></li>
+<li>在 Kit 选择界面，选择 <strong>Qt 5.15.2 MinGW 32-bit</strong></li>
+<li>点击左下角 <strong>构建</strong> 按钮（或 <code>Ctrl+B</code>）</li>
+</ol>
+
+<h3>4.3 CMake 构建（备选）</h3>
+
+<pre><code class="language-bash">cd CetCryptoToolkit
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel 4</code></pre>
+
+<hr>
+
+<h2>五、运行时 DLL 部署</h2>
+
+<p>编译完成后，可执行文件需要以下 DLL 在同目录：</p>
+
+<pre><code class="language-bash"># 使用 windeployqt 自动部署 Qt 运行时
+windeployqt.exe CetCryptoToolkit.exe
+
+# 手动复制 OpenSSL DLL（从 libs/ 目录）
+copy libs\libcrypto-3.dll &lt;输出目录&gt;
+copy libs\libssl-3.dll    &lt;输出目录&gt;</code></pre>
+
+<p>完整运行时目录结构：</p>
+
+<pre><code>CetCryptoToolkit.exe
+libcrypto-3.dll
+libssl-3.dll
+Qt5Core.dll
+Qt5Gui.dll
+Qt5Widgets.dll
+Qt5Network.dll
+platforms\qwindows.dll
+plugins\                    ← 可选：商业功能插件
+Configs\AppMaster.ini       ← 首次运行后自动生成</code></pre>
+
+<hr>
+
+<h2>六、插件部署（可选）</h2>
+
+<p>商业功能插件（授权/更新/日志）放置在以下任一路径：</p>
+
+<pre><code># 优先路径（生产环境）
+D:\Program Files (x86)\CetXiyuan\CetToolDLLs\plugins\
+
+# 备用路径（开发/便携模式）
+&lt;exe同目录&gt;\plugins\</code></pre>
+
+<p>插件缺失时程序会弹出警告，但核心密码学功能不受影响。</p>
+
+<hr>
+
+<h2>七、常见问题</h2>
+
+<p><strong>Q：编译报错 <code>undefined reference to __imp_EVP_...</code></strong></p>
+<p>A：OpenSSL 库架构不匹配。确认使用的是 MinGW <strong>32-bit</strong> 工具链，而非 64-bit。检查 Qt Creator 中 Kit 配置的编译器路径是否包含 <code>mingw81_32</code>。</p>
+
+<hr>
+
+<p><strong>Q：运行时报错 <code>无法找到 libcrypto-3.dll</code></strong></p>
+<p>A：将 <code>libs/libcrypto-3.dll</code> 和 <code>libs/libssl-3.dll</code> 复制到 <code>.exe</code> 同目录。</p>
+
+<hr>
+
+<p><strong>Q：界面中文显示乱码</strong></p>
+<p>A：项目已在 <code>main.cpp</code> 中设置 <code>QTextCodec::setCodecForLocale</code>，通常不会乱码。若仍有问题，检查源文件编码是否为 UTF-8，Qt Creator 中可在 <strong>工具 → 选项 → 文本编辑器 → 行为</strong> 中设置默认编码为 UTF-8。</p>
+
+<hr>
+
+<p><strong>Q：Qt Creator 提示 <code>Cannot find kit</code></strong></p>
+<p>A：进入 <strong>工具 → 选项 → Kits</strong>，确认存在一个 Kit 使用 Qt 5.15.2 MinGW 32-bit 编译器，且 Qt 版本指向正确的 <code>qmake.exe</code>。</p>
+
+<hr>
+
+<p><strong>Q：<code>qmake</code> 命令找不到</strong></p>
+<p>A：将 Qt 的 MinGW 32-bit bin 目录加入系统 PATH，例如：</p>
+
+<pre><code>C:\Qt\5.15.2\mingw81_32\bin
+C:\Qt\Tools\mingw810_32\bin</code></pre>
+
+<hr>
+
+<p><strong>Q：插件加载失败，弹出警告</strong></p>
+<p>A：这是正常现象，商业插件（授权/更新）不影响密码学核心功能。如需完整功能，将对应 DLL 放入 <code>plugins/</code> 目录。</p>
+
+<hr>
+
+<h2>八、开发调试建议</h2>
+
+<ul>
+<li>使用 <code>qDebug()</code> 输出调试信息，程序定义了 <code>QT_MESSAGELOGCONTEXT</code>，日志会包含文件名和行号</li>
+<li>按 <strong>F2</strong> 可快速打开程序工作目录，方便查看生成的证书文件</li>
+<li>证书输出目录：<code>&lt;工作目录&gt;/dir-certs/</code></li>
+<li>配置文件：<code>&lt;工作目录&gt;/Configs/AppMaster.ini</code></li>
+</ul>
+
+  </div>
+  <div class="footer">📄 文档转换 · 笔名 CetXiyuan</div>
+</div>
+
+<script>
+function copyContent() {
+  var el = document.getElementById('main-content');
+  var text = el.innerText || el.textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById('copyBtn');
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+</script>
+</body>
+</html>

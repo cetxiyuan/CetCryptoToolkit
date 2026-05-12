@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CetCryptoToolkit 软件架构和功能模块说明</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 16px; line-height: 1.75; color: #24292e;
+    background: #f6f8fa; padding: 24px 16px;
+  }
+  .container {
+    max-width: 860px; margin: 0 auto;
+    background: #fff; border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    padding: 40px 48px;
+    position: relative;
+  }
+  .copy-btn {
+    position: absolute; top: 20px; right: 20px;
+    background: #0969da; color: #fff; border: none;
+    padding: 6px 16px; border-radius: 6px; cursor: pointer;
+    font-size: 14px; transition: background .2s;
+  }
+  .copy-btn:hover { background: #0550ae; }
+  .copy-btn.copied { background: #1a7f37; }
+  h1 { font-size: 2em; border-bottom: 2px solid #e1e4e8; padding-bottom: 12px; margin-bottom: 24px; color: #0d1117; }
+  h2 { font-size: 1.4em; margin: 32px 0 12px; color: #0d1117; border-left: 4px solid #0969da; padding-left: 10px; }
+  h3 { font-size: 1.15em; margin: 24px 0 8px; color: #24292e; }
+  h4 { font-size: 1.05em; margin: 18px 0 6px; color: #24292e; }
+  p { margin: 10px 0; }
+  blockquote {
+    border-left: 4px solid #d0d7de; margin: 16px 0;
+    padding: 8px 16px; background: #f6f8fa; color: #57606a;
+    border-radius: 0 4px 4px 0;
+  }
+  blockquote p { margin: 4px 0; }
+  pre {
+    background: #f6f8fa; border: 1px solid #d0d7de;
+    border-radius: 6px; padding: 16px; overflow-x: auto;
+    margin: 12px 0; font-size: 14px; line-height: 1.6;
+  }
+  code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.9em;
+  }
+  p code, li code {
+    background: #f0f2f4; border: 1px solid #d0d7de;
+    border-radius: 4px; padding: 1px 5px; color: #c0392b;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 15px; }
+  th { background: #f0f2f4; font-weight: 600; }
+  th, td { border: 1px solid #d0d7de; padding: 8px 14px; text-align: left; }
+  tr:nth-child(even) td { background: #f9fafb; }
+  ul, ol { padding-left: 24px; margin: 10px 0; }
+  li { margin: 4px 0; }
+  hr { border: none; border-top: 1px solid #e1e4e8; margin: 28px 0; }
+  strong { color: #0d1117; }
+  .footer {
+    text-align: center; margin-top: 40px; padding-top: 16px;
+    border-top: 1px solid #e1e4e8; color: #57606a; font-size: 14px;
+  }
+  @media (max-width: 640px) {
+    .container { padding: 24px 16px; }
+    .copy-btn { position: static; display: block; margin-bottom: 16px; }
+    h1 { font-size: 1.5em; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <button class="copy-btn" id="copyBtn" onclick="copyContent()">Copy</button>
+  <div id="main-content">
+
+<h1>CetCryptoToolkit 软件架构和功能模块说明</h1>
+
+<blockquote>
+<p>作者：CetXiyuan（璟·汐源忆醉）</p>
+<p>版本：v2.3.1</p>
+<p>平台：Windows，Qt 5.15.2 (MinGW, 32-bit)，OpenSSL 3.x</p>
+</blockquote>
+
+<hr>
+
+<h2>一、项目定位</h2>
+
+<p>CetCryptoToolkit 是一款面向开发者和安全工程师的<strong>密码学工具箱</strong>桌面应用程序，集成了证书管理（PKI）、非对称加密/签名、对称加密、国密算法（SM2/SM3/SM4）等常用密码学操作，提供图形界面和底层 OpenSSL C API 双重访问路径。</p>
+
+<hr>
+
+<h2>二、整体架构</h2>
+
+<pre><code>┌──────────────────────────────────────────────────────────────┐
+│                        main.cpp                              │
+│   高 DPI 适配 / 样式初始化 / QApplication 入口               │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+┌───────────────────────────▼──────────────────────────────────┐
+│                    MainWindow（主窗口）                        │
+│  • UI 调度层，持有并协调所有功能模块                           │
+│  • 运行时动态加载外部插件（loadPlugin）                        │
+│  • 持有 OpenSSLHelper、CertificateManager 实例                │
+│  • 配置持久化：Configs/AppMaster.ini（QSettings）             │
+└─────┬────────────┬───────────────────────┬────────────────────┘
+      │            │                       │
+      ▼            ▼                       ▼
+┌──────────┐ ┌──────────────────┐ ┌─────────────────────────┐
+│OpenSSL   │ │CertificateManager│ │  插件接口层（interfaces/）│
+│Helper    │ │（证书管理对话框） │ │  CetLogManagerInterface  │
+│（核心）  │ │  调用 OpenSSL-   │ │  CetLicenseInterface     │
+│          │ │  Helper 完成签发 │ │  CetUpdateInterface      │
+└──────────┘ └──────────────────┘ │  CetProgressInterface    │
+                                  │  CetCANInterface         │
+                                  └─────────────────────────┘</code></pre>
+
+<h3>关键数据流</h3>
+
+<pre><code>用户操作（UI）
+    → MainWindow slot
+        → OpenSSLHelper 方法（直接调用 OpenSSL C API）
+            → 返回 QByteArray / QSslCertificate / QSslKey
+        → 结果写入文件或显示在文本框</code></pre>
+
+<hr>
+
+<h2>三、功能模块详解</h2>
+
+<h3>3.1 OpenSSLHelper（<code>modules/opensslhelper/</code>）</h3>
+
+<p>所有 OpenSSL 操作的<strong>唯一封装点</strong>，直接调用 OpenSSL 3.x C API。</p>
+
+<table>
+<thead><tr><th>功能类别</th><th>主要方法</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>初始化</td><td><code>initOpenSSL()</code> / <code>cleanupOpenSSL()</code></td><td>单例初始化，加载所有摘要/加密算法</td></tr>
+<tr><td>密钥对生成</td><td><code>genKeyPair(algorithm, keySize, passphrase)</code></td><td>支持 RSA/EC/SM2，返回 <code>QPair&lt;公钥, 私钥&gt;</code></td></tr>
+<tr><td>自签证书</td><td><code>genSelfCert(validDays, subjectDN, ...)</code></td><td>生成自签名 X.509 证书</td></tr>
+<tr><td>CSR</td><td><code>genCSR()</code> / <code>signCSR()</code></td><td>生成证书请求 / CA 签发</td></tr>
+<tr><td>证书链</td><td><code>genChain()</code> / <code>toP7b()</code> / <code>toPfx()</code></td><td>生成链文件、P7B、PFX（PKCS#12）</td></tr>
+<tr><td>格式转换</td><td><code>toDer()</code></td><td>PEM → DER</td></tr>
+<tr><td>非对称加解密</td><td><code>asymmetricEncrypt()</code> / <code>asymmetricDecrypt()</code></td><td>RSA/EC 公钥加密 / 私钥解密</td></tr>
+<tr><td>摘要</td><td><code>digest(data, hashAlgo)</code></td><td>支持 MD5/SHA1/SHA256/SHA512/SM3 等 11 种</td></tr>
+<tr><td>签名/验签</td><td><code>signData()</code> / <code>signVerify()</code></td><td>RSA/EC/SM2，SM2 需提供 userId</td></tr>
+<tr><td>AES</td><td><code>aesEncrypt()</code> / <code>aesDecrypt()</code></td><td>ECB/CBC/GCM/CTR 模式，自动处理 IV+密文+Tag 格式</td></tr>
+<tr><td>AES-CMAC</td><td><code>aes128GenerateCMAC()</code></td><td>128 位消息认证码</td></tr>
+<tr><td>SM4</td><td><code>sm4Encrypt()</code> / <code>sm4Decrypt()</code></td><td>国密对称加密，ECB/CBC/GCM/CTR</td></tr>
+<tr><td>SM2 辅助</td><td><code>sm2PubKeyToDer()</code> / <code>sm2SignToDer()</code></td><td>裸公钥/签名转 DER</td></tr>
+<tr><td>错误处理</td><td><code>lastErrors()</code> / <code>appendError()</code></td><td>内部错误队列，含 OpenSSL 错误字符串</td></tr>
+</tbody>
+</table>
+
+<p><strong>支持的算法参数：</strong></p>
+<ul>
+<li>RSA 密钥长度：512 / 1024 / 2048 / 3072 / 4096 / 8192-bit</li>
+<li>EC 曲线：prime256v1 / secp256k1 / secp384r1 / secp521r1</li>
+<li>国密：SM2（公钥）/ SM3（摘要）/ SM4（对称）</li>
+</ul>
+
+<p><strong>openssl.exe 备用路径</strong>：以 <code>openssl</code> 前缀命名的方法族（<code>opensslGenKeyPair</code> 等）通过 PowerShell 调用 <code>libs/openssl.exe</code>，由宏 <code>USE_OPENSSL_TOOL_HANDLER=0/1</code> 控制是否启用。</p>
+
+<hr>
+
+<h3>3.2 CertificateManager（<code>modules/certificatemanager/</code>）</h3>
+
+<p>证书配置对话框（<code>QDialog</code>），提供证书生成的 UI 界面和流程编排。</p>
+
+<p><strong>证书类型枚举：</strong></p>
+
+<table>
+<thead><tr><th>枚举值</th><th>含义</th><th>pathlen</th><th>签发者</th></tr></thead>
+<tbody>
+<tr><td><code>CERT_RootCACetXiyuan</code></td><td>一级根证书（CetXiyuan 预置）</td><td>1</td><td>自签</td></tr>
+<tr><td><code>CERT_RootCACustom</code></td><td>一级根证书（自定义）</td><td>1</td><td>自签</td></tr>
+<tr><td><code>CERT_SubordinateCA</code></td><td>二级根证书</td><td>0</td><td>RootCA 签发</td></tr>
+<tr><td><code>CERT_EndEntity</code></td><td>终端证书</td><td>—</td><td>SubCA 签发</td></tr>
+</tbody>
+</table>
+
+<p><strong>默认扩展字段：</strong></p>
+<ul>
+<li>RootCA：<code>basicConstraints=critical,CA:TRUE,pathlen:1</code> + <code>keyUsage=keyCertSign,cRLSign</code></li>
+<li>SubCA：<code>basicConstraints=critical,CA:TRUE,pathlen:0</code> + <code>keyUsage=keyCertSign,cRLSign</code></li>
+<li>EndEntity：<code>basicConstraints=CA:FALSE</code> + <code>keyUsage=digitalSignature,keyEncipherment</code> + <code>extendedKeyUsage=serverAuth,clientAuth</code> + <code>subjectAltName=DNS:example.com,IP:127.0.0.1</code></li>
+</ul>
+
+<p><strong>输出文件（以 EndEntity 为例）：</strong></p>
+<ul>
+<li><code>&lt;CommonName&gt;.key</code> — 私钥（PEM）</li>
+<li><code>&lt;CommonName&gt;.pub</code> — 公钥（PEM）</li>
+<li><code>&lt;CommonName&gt;.csr</code> — 证书请求</li>
+<li><code>&lt;CommonName&gt;.crt</code> — 证书（PEM）</li>
+<li><code>&lt;CommonName&gt;.der</code> — 证书（DER）</li>
+<li><code>&lt;CommonName&gt;.p7b</code> — 证书链</li>
+<li><code>&lt;CommonName&gt;.pfx</code> — PKCS#12（含链+私钥，密码：pfxpassword）</li>
+</ul>
+
+<hr>
+
+<h3>3.3 MainWindow（<code>mainwindow/</code>）</h3>
+
+<p>主窗口是所有功能的 <strong>UI 调度层</strong>，包含三个主要功能页签：</p>
+
+<h4>证书管理页</h4>
+<ul>
+<li>证书类型选择（EndEntity / SubCA / RootCA）</li>
+<li>签发者显示</li>
+<li>证书参数配置（点击按钮弹出 CertificateManager 对话框）</li>
+<li>生成证书，输出到选定目录</li>
+</ul>
+
+<h4>非对称加密页（AEA）</h4>
+<ul>
+<li>私钥/公钥导入（文本输入或文件读取）</li>
+<li>支持 RSA/EC/SM2 加解密</li>
+<li>摘要计算（11 种算法）</li>
+<li>签名与验签（含 SM2 的 userId 参数）</li>
+</ul>
+
+<h4>对称加密页（SEA）</h4>
+<ul>
+<li>算法选择：AES / SM4</li>
+<li>模式选择：ECB / CBC / GCM / CTR</li>
+<li>密钥输入（Hex 格式，支持 128/192/256-bit）</li>
+<li>IV 输入（Hex 格式）</li>
+<li>加密/解密操作</li>
+<li>AES-128-CMAC 计算</li>
+</ul>
+
+<hr>
+
+<h3>3.4 插件接口层（<code>interfaces/</code>）</h3>
+
+<p>采用 Qt 插件机制，主窗口在启动时从固定路径动态加载 DLL：</p>
+
+<pre><code>优先路径：D:/Program Files (x86)/CetXiyuan/CetToolDLLs/plugins/
+备用路径：./plugins/</code></pre>
+
+<table>
+<thead><tr><th>接口</th><th>DLL（推测）</th><th>功能</th></tr></thead>
+<tbody>
+<tr><td><code>CetLogManagerInterface</code></td><td><code>CetLogManagerPlugin.dll</code></td><td>日志管理窗口</td></tr>
+<tr><td><code>CetLicenseInterface</code></td><td>—</td><td>授权验证</td></tr>
+<tr><td><code>CetUpdateInterface</code></td><td>—</td><td>软件更新检查</td></tr>
+<tr><td><code>CetProgressInterface</code></td><td>—</td><td>进度显示</td></tr>
+<tr><td><code>CetCANInterface</code></td><td>—</td><td>CAN 总线通信（扩展用）</td></tr>
+</tbody>
+</table>
+
+<blockquote><p>插件缺失时仅弹出警告，不影响核心密码学功能使用。</p></blockquote>
+
+<hr>
+
+<h3>3.5 配置与目录约定</h3>
+
+<table>
+<thead><tr><th>路径</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><code>Configs/AppMaster.ini</code></td><td>应用配置（QSettings，UTF-8 编码）</td></tr>
+<tr><td><code>dir-certs/</code></td><td>证书输出目录</td></tr>
+<tr><td><code>dir-asymmetrics/</code></td><td>非对称加密文件目录</td></tr>
+<tr><td><code>dir-symmetrics/</code></td><td>对称加密文件目录</td></tr>
+<tr><td><code>libs/</code></td><td>预编译 DLL（OpenSSL 3.x、CetProductWizard）</td></tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2>四、国密算法支持说明</h2>
+
+<p>OpenSSL 3.x 默认 provider 已内置国密支持，程序启动时检测并打印：</p>
+
+<pre><code>SM2 is in default provider
+SM3 is in default provider
+SM4 is in default provider</code></pre>
+
+<p>SM2 签名特殊性：需要传入 <code>userId</code>（默认为标准值 <code>1234567812345678</code>），这是 SM2 签名算法的 ZA 值计算必须项，与 RSA/EC 签名接口有所不同。</p>
+
+<hr>
+
+<h2>五、构建依赖关系</h2>
+
+<pre><code>CetCryptoToolkit.pro（qmake 主入口）
+├── mainwindow/mainwindow.pri
+│   └── mainwindow.h/cpp/ui
+├── modules/modules.pri
+│   ├── opensslhelper/opensslhelper.pri
+│   │   └── opensslhelper.h/cpp
+│   └── certificatemanager/certificatemanager.pri
+│       └── certificatemanager.h/cpp/ui
+├── interfaces/interfaces.pri
+│   └── *.h（纯头文件，无 .cpp）
+└── LIBS: -lCetProductWizard -lcrypto-3 -lssl-3</code></pre>
+
+<p>Qt 模块依赖：<code>core gui widgets network</code>（network 模块提供 <code>QSslCertificate</code>/<code>QSslKey</code>）</p>
+
+<hr>
+
+<h2>六、其他建议生成的文档</h2>
+
+<p>作为资深开发者，建议补充以下文档：</p>
+
+<table>
+<thead><tr><th>文档名</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><code>README.md</code></td><td>项目简介、功能截图、快速上手，放在仓库根目录供首页展示</td></tr>
+<tr><td><code>CHANGELOG.md</code></td><td>版本变更记录，记录每个版本新增/修复/废弃，便于追踪历史</td></tr>
+<tr><td><code>开发环境搭建指南.md</code></td><td>Qt 5.15.2 + MinGW + OpenSSL 3.x 的安装配置步骤，降低新人上手成本</td></tr>
+<tr><td><code>国密算法使用说明.md</code></td><td>SM2/SM3/SM4 的使用示例、与标准 RSA/AES 的差异对比</td></tr>
+<tr><td><code>证书管理操作手册.md</code></td><td>面向最终用户的操作说明，含截图，说明如何生成三级 PKI 体系证书</td></tr>
+<tr><td><code>API参考手册.md</code></td><td><code>OpenSSLHelper</code> 各方法的参数说明、返回值、错误处理约定，供二次开发使用</td></tr>
+</tbody>
+</table>
+
+  </div>
+  <div class="footer">📄 文档转换 · 笔名 CetXiyuan</div>
+</div>
+
+<script>
+function copyContent() {
+  var el = document.getElementById('main-content');
+  var text = el.innerText || el.textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById('copyBtn');
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+</script>
+</body>
+</html>
