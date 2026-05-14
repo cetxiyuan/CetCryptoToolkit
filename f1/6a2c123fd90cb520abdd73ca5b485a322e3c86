@@ -1,0 +1,36 @@
+CLAUDE.md
+  s_eb8cbb84063298::t_84f5ec6b3b20ab 79-129
+docs/html/API参考手册.html
+  s_eb8cbb84063298::t_032395e2b1f828 1-531
+docs/html/README.html
+  s_eb8cbb84063298::t_032395e2b1f828 1-371
+docs/html/软件架构和功能模块说明.html
+  s_eb8cbb84063298::t_032395e2b1f828 1-603
+docs/html/国密算法使用说明.html
+  s_eb8cbb84063298::t_032395e2b1f828 1-564
+docs/html/证书管理操作手册.html
+  s_eb8cbb84063298::t_032395e2b1f828 1-592
+docs/md2html.py
+  s_eb8cbb84063298::t_e1dc1d5fbcee52 1-345,374-441
+  s_eb8cbb84063298::t_44f5ff52de7293 346-373
+docs/html/开发环境搭建指南.html
+  s_eb8cbb84063298::t_032395e2b1f828 1-460
+docs/html/CHANGELOG.html
+  s_eb8cbb84063298::t_032395e2b1f828 1-433
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "f16a2c123fd90cb520abdd73ca5b485a322e3c86",
+  "prompts": {},
+  "sessions": {
+    "s_eb8cbb84063298": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "11f3f41e-5db8-4644-ad15-94f7e74eca28",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "cetxiyuan <zhengjianyu@yaxon.com>"
+    }
+  }
+}
