@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>证书管理操作手册</title>
+<style>
+/* ===== 页面主体 ===== */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 24px 16px 60px;
+  background: #fafafa;
+  color: #1e2a3e;
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+}
+#doc-wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 40px 48px 48px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  position: relative;
+}
+/* ===== 标题 ===== */
+h1,h2,h3,h4,h5,h6 {
+  color: #1e2a3e;
+  margin-top: 1.6em;
+  margin-bottom: .5em;
+  line-height: 1.3;
+}
+h1 { font-size: 2em; border-bottom: 2px solid #e2e8f0; padding-bottom: .3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #e2e8f0; padding-bottom: .2em; }
+h3 { font-size: 1.2em; }
+/* ===== 段落 / 链接 ===== */
+p { margin: .6em 0 .9em; }
+a { color: #2563eb; text-decoration: none; }
+a:hover { text-decoration: underline; }
+/* ===== 引用块 ===== */
+blockquote {
+  margin: 1em 0;
+  padding: 10px 20px;
+  background: #f6f8fa;
+  border-left: 4px solid #94a3b8;
+  color: #475569;
+  border-radius: 0 4px 4px 0;
+}
+blockquote p { margin: 0; }
+/* ===== 表格 ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: .93em;
+}
+th,td {
+  border: 1px solid #e2e8f0;
+  padding: 8px 14px;
+  text-align: left;
+}
+th {
+  background: #f6f8fa;
+  font-weight: 600;
+  color: #1e2a3e;
+}
+tr:nth-child(even) td { background: #fafafa; }
+/* ===== 列表 ===== */
+ul,ol { padding-left: 1.6em; margin: .5em 0 .9em; }
+li { margin: .3em 0; }
+/* ===== 行内代码 ===== */
+#doc-content code:not(pre code) {
+  background: #f0f4f8 !important;
+  color: #c7254e !important;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: .88em;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+}
+/* ===== 代码块容器 ===== */
+#doc-content pre {
+  position: relative;
+  margin: 1em 0;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+#doc-content pre code {
+  display: block;
+  padding: 16px 18px;
+  font-size: .88em;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  line-height: 1.6;
+  background: #1e1e1e !important;
+  color: #abb2bf;  /* 默认浅灰，pygments 着色后会覆盖 */
+  border-radius: 6px;
+}
+/* ===== Pygments 语法高亮（one-dark 风格） ===== */
+.codehilite { margin: 0; }
+.codehilite pre { margin: 0; }
+.hll { background-color: #49483e }
+.c  { color: #75715e } /* 注释 */
+.err{ color: #960050; background-color: #1e0010 }
+.k  { color: #66d9ef } /* 关键字 */
+.l  { color: #ae81ff }
+.n  { color: #f8f8f2 }
+.o  { color: #f92672 } /* 运算符 */
+.p  { color: #f8f8f2 }
+.cm { color: #75715e }
+.cp { color: #75715e }
+.c1 { color: #75715e }
+.cs { color: #75715e }
+.ge { font-style: italic }
+.gs { font-weight: bold }
+.kc { color: #66d9ef }
+.kd { color: #66d9ef }
+.kn { color: #f92672 }
+.kp { color: #66d9ef }
+.kr { color: #66d9ef }
+.kt { color: #66d9ef }
+.ld { color: #e6db74 }
+.m  { color: #ae81ff } /* 数字 */
+.s  { color: #e6db74 } /* 字符串 */
+.na { color: #a6e22e }
+.nb { color: #f8f8f2 }
+.nc { color: #a6e22e }
+.no { color: #66d9ef }
+.nd { color: #a6e22e }
+.ni { color: #f8f8f2 }
+.ne { color: #a6e22e }
+.nf { color: #a6e22e } /* 函数名 */
+.nl { color: #f8f8f2 }
+.nn { color: #f8f8f2 }
+.nx { color: #a6e22e }
+.py { color: #f8f8f2 }
+.nt { color: #f92672 }
+.nv { color: #f8f8f2 }
+.ow { color: #f92672 }
+.w  { color: #f8f8f2 }
+.mf { color: #ae81ff }
+.mh { color: #ae81ff }
+.mi { color: #ae81ff }
+.mo { color: #ae81ff }
+.sb { color: #e6db74 }
+.sc { color: #e6db74 }
+.sd { color: #e6db74 }
+.s2 { color: #e6db74 }
+.se { color: #ae81ff }
+.sh { color: #e6db74 }
+.si { color: #e6db74 }
+.sx { color: #e6db74 }
+.sr { color: #e6db74 }
+.s1 { color: #e6db74 }
+.ss { color: #e6db74 }
+.bp { color: #f8f8f2 }
+.vc { color: #f8f8f2 }
+.vg { color: #f8f8f2 }
+.vi { color: #f8f8f2 }
+.il { color: #ae81ff }
+
+/* ===== 复制按钮（代码块） ===== */
+.copy-code-btn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: rgba(255,255,255,.12);
+  color: #cdd6f4;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: .78em;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .2s, background .2s;
+  z-index: 10;
+  user-select: none;
+}
+#doc-content pre:hover .copy-code-btn { opacity: 1; }
+.copy-code-btn:hover { background: rgba(255,255,255,.25); }
+
+/* ===== 全文复制按钮 ===== */
+#copy-all-btn {
+  position: fixed;
+  top: 20px;
+  right: 28px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: .88em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37,99,235,.35);
+  transition: background .2s;
+  z-index: 100;
+}
+#copy-all-btn:hover { background: #1d4ed8; }
+
+/* ===== 复制提示浮层 ===== */
+#copy-toast {
+  position: fixed;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e2a3e;
+  color: #e2e8f0;
+  padding: 10px 24px;
+  border-radius: 24px;
+  font-size: .9em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s;
+  z-index: 200;
+}
+#copy-toast.show { opacity: 1; }
+
+/* ===== 页脚 ===== */
+#doc-footer {
+  text-align: center;
+  margin-top: 48px;
+  color: #94a3b8;
+  font-size: .85em;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 20px;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 720px) {
+  #doc-wrap { padding: 24px 18px 36px; }
+  #copy-all-btn { top: 10px; right: 12px; padding: 5px 10px; font-size: .8em; }
+}
+</style>
+</head>
+<body>
+
+<button id="copy-all-btn" onclick="copyAll()">Copy</button>
+<div id="copy-toast"></div>
+
+<div id="doc-wrap">
+  <div id="doc-content">
+<h1 id="_1">证书管理操作手册</h1>
+<blockquote>
+<p>适用版本：CetCryptoToolkit v2.3.x<br />
+作者：CetXiyuan（璟·汐源忆醉）</p>
+</blockquote>
+<hr />
+<h2 id="pki">一、PKI 证书体系说明</h2>
+<p>PKI（公钥基础设施）是一套用于管理数字证书的体系。CetCryptoToolkit 支持<strong>三级证书体系</strong>：</p>
+<div class="codehilite"><pre><span></span><code>一级根证书（RootCA）
+  └── 二级根证书（SubCA）
+        └── 终端证书（EndEntity）
+</code></pre></div>
+
+<p><strong>通俗理解</strong>：<br />
+- <strong>一级根证书</strong>：最高权威，相当于"公安部"，自己给自己盖章，是整个信任链的起点<br />
+- <strong>二级根证书</strong>：中间机构，相当于"省公安厅"，由一级根证书授权<br />
+- <strong>终端证书</strong>：最终使用的证书，相当于"个人身份证"，由二级根证书签发，用于实际的加密通信或身份认证</p>
+<hr />
+<h2 id="_2">二、快速生成一套完整证书</h2>
+<p>以下步骤演示如何从零生成一套完整的三级 PKI 证书。</p>
+<h3 id="rootca">第一步：生成一级根证书（RootCA）</h3>
+<ol>
+<li>在主界面顶部的「证书类型」下拉框中，选择 <strong>一级根证书(CetXiyuan)</strong> 或 <strong>一级根证书(Custom)</strong><br />
+   - <code>CetXiyuan</code>：使用作者预置的固定参数，适合快速测试<br />
+   - <code>Custom</code>：可自定义所有参数，适合正式使用</li>
+<li>点击「配置」按钮，打开证书配置对话框</li>
+<li>在配置对话框中设置：<br />
+   - <strong>密钥类型</strong>：RSA-2048（推荐）或 SM2（国密）<br />
+   - <strong>有效期</strong>：建议 3650 天（10年）<br />
+   - <strong>CommonName</strong>：证书名称，如 <code>My Root CA</code></li>
+<li>点击「确定」关闭配置对话框</li>
+<li>在主界面点击「生成证书」按钮</li>
+<li>等待生成完成，查看输出目录中的文件</li>
+</ol>
+<h3 id="subca">第二步：生成二级根证书（SubCA）</h3>
+<ol>
+<li>「证书类型」选择 <strong>二级根证书</strong></li>
+<li>点击「配置」，设置参数（有效期建议 1825 天，即 5 年）</li>
+<li>确认「签发者」显示为刚才生成的一级根证书</li>
+<li>点击「生成证书」</li>
+</ol>
+<h3 id="endentity">第三步：生成终端证书（EndEntity）</h3>
+<ol>
+<li>「证书类型」选择 <strong>终端证书</strong></li>
+<li>点击「配置」，重点设置：<br />
+   - <strong>CommonName</strong>：域名或服务名，如 <code>example.com</code><br />
+   - <strong>SAN（主题备用名称）</strong>：填写实际使用的域名和 IP，如 <code>DNS:example.com,IP:192.168.1.1</code><br />
+   - <strong>有效期</strong>：建议 365 天（1年）</li>
+<li>确认「签发者」显示为二级根证书</li>
+<li>点击「生成证书」</li>
+</ol>
+<hr />
+<h2 id="_3">三、证书类型详解</h2>
+<h3 id="31-rootca">3.1 一级根证书（RootCA）</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>证书类型</td>
+<td>CA 证书</td>
+</tr>
+<tr>
+<td>pathlen</td>
+<td>1（最多允许 1 级中间 CA）</td>
+</tr>
+<tr>
+<td>密钥用途</td>
+<td>keyCertSign（签发证书）、cRLSign（签发吊销列表）</td>
+</tr>
+<tr>
+<td>签发者</td>
+<td>自签（Issuer = Subject）</td>
+</tr>
+<tr>
+<td>有效期建议</td>
+<td>10 年</td>
+</tr>
+</tbody>
+</table>
+<p><strong>两种预设</strong>：<br />
+- <strong>CetXiyuan</strong>：CN 固定为 <code>CetXiyuan Root CA Signing Authority</code>，参数不可修改，适合快速测试<br />
+- <strong>Custom</strong>：所有参数可自定义，适合正式部署</p>
+<h3 id="32-subca">3.2 二级根证书（SubCA）</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>证书类型</td>
+<td>CA 证书</td>
+</tr>
+<tr>
+<td>pathlen</td>
+<td>0（不允许再下级 CA）</td>
+</tr>
+<tr>
+<td>密钥用途</td>
+<td>keyCertSign、cRLSign</td>
+</tr>
+<tr>
+<td>签发者</td>
+<td>一级根证书</td>
+</tr>
+<tr>
+<td>有效期建议</td>
+<td>5 年</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-endentity">3.3 终端证书（EndEntity）</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>证书类型</td>
+<td>非 CA 证书</td>
+</tr>
+<tr>
+<td>密钥用途</td>
+<td>digitalSignature（数字签名）、keyEncipherment（密钥加密）</td>
+</tr>
+<tr>
+<td>扩展密钥用途</td>
+<td>serverAuth（服务器认证）、clientAuth（客户端认证）</td>
+</tr>
+<tr>
+<td>SAN</td>
+<td>用户指定的 DNS 域名和 IP 地址</td>
+</tr>
+<tr>
+<td>签发者</td>
+<td>二级根证书</td>
+</tr>
+<tr>
+<td>有效期建议</td>
+<td>1 年</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_4">四、配置对话框参数说明</h2>
+<p>点击主界面「配置」按钮后，弹出证书配置对话框，各参数说明如下：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>密钥类型</td>
+<td>非对称算法选择</td>
+<td>RSA-2048、EC prime256v1、SM2</td>
+</tr>
+<tr>
+<td>有效期（天）</td>
+<td>证书有效天数</td>
+<td>365、1825、3650</td>
+</tr>
+<tr>
+<td>CommonName (CN)</td>
+<td>证书主体名称</td>
+<td><code>example.com</code>、<code>My Root CA</code></td>
+</tr>
+<tr>
+<td>证书扩展字段</td>
+<td>X.509 v3 扩展，可手动编辑</td>
+<td>见下方说明</td>
+</tr>
+</tbody>
+</table>
+<p><strong>证书扩展字段格式</strong>（每行一条）：</p>
+<div class="codehilite"><pre><span></span><code>basicConstraints=critical,CA:TRUE,pathlen:1
+keyUsage=critical,keyCertSign,cRLSign
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid:always,issuer:always
+subjectAltName=DNS:example.com,IP:127.0.0.1
+extendedKeyUsage=serverAuth,clientAuth
+</code></pre></div>
+
+<hr />
+<h2 id="_5">五、输出文件说明</h2>
+<p>每次生成证书，自动在 <code>&lt;应用目录&gt;/dir-certs/</code> 目录下输出以下文件：</p>
+<table>
+<thead>
+<tr>
+<th>文件名</th>
+<th>格式</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;name&gt;.key.pem</code></td>
+<td>PEM</td>
+<td>私钥，<strong>妥善保管，不可泄露</strong></td>
+</tr>
+<tr>
+<td><code>&lt;name&gt;.pub.pem</code></td>
+<td>PEM</td>
+<td>公钥</td>
+</tr>
+<tr>
+<td><code>&lt;name&gt;.csr.pem</code></td>
+<td>PEM</td>
+<td>证书签名请求（CSR）</td>
+</tr>
+<tr>
+<td><code>&lt;name&gt;.crt.pem</code></td>
+<td>PEM</td>
+<td>证书（文本格式，可用记事本打开）</td>
+</tr>
+<tr>
+<td><code>&lt;name&gt;.crt.der</code></td>
+<td>DER</td>
+<td>证书（二进制格式，部分系统需要）</td>
+</tr>
+<tr>
+<td><code>chain.pem</code></td>
+<td>PEM</td>
+<td>证书链（SubCA + RootCA 拼接）</td>
+</tr>
+<tr>
+<td><code>chain.p7b</code></td>
+<td>PKCS#7</td>
+<td>证书链（Windows 可直接双击导入）</td>
+</tr>
+<tr>
+<td><code>&lt;name&gt;.pfx</code></td>
+<td>PKCS#12</td>
+<td>证书 + 私钥 + 证书链打包文件</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>PFX 文件默认密码</strong>：<code>pfxpassword</code></p>
+</blockquote>
+<hr />
+<h2 id="pfx-p7b">六、PFX 和 P7B 的使用场景</h2>
+<h3 id="pfxpkcs12">PFX（PKCS#12）</h3>
+<ul>
+<li>包含：证书 + 私钥 + 完整证书链</li>
+<li>用途：导入到 Windows 证书存储、IIS、Nginx（需先转换）、Java KeyStore</li>
+<li>导入方式：Windows 下双击 <code>.pfx</code> 文件，按向导操作，输入密码 <code>pfxpassword</code></li>
+</ul>
+<h3 id="p7bpkcs7">P7B（PKCS#7）</h3>
+<ul>
+<li>包含：证书链（不含私钥）</li>
+<li>用途：在服务器上部署证书链，让客户端验证证书信任链</li>
+<li>导入方式：Windows 下双击 <code>.p7b</code> 文件，可导入到证书存储</li>
+</ul>
+<hr />
+<h2 id="_6">七、常见问题</h2>
+<p><strong>Q：浏览器提示"证书不受信任"</strong></p>
+<p>A：需要将一级根证书（<code>RootCA.crt.pem</code>）导入到操作系统或浏览器的"受信任的根证书颁发机构"存储中。Windows 下：双击 <code>.crt</code> 文件 → 安装证书 → 选择"本地计算机" → 将所有证书放入"受信任的根证书颁发机构"。</p>
+<hr />
+<p><strong>Q：私钥文件丢失怎么办</strong></p>
+<p>A：私钥无法恢复，必须重新生成密钥对和证书。建议将 <code>.key.pem</code> 文件备份到安全位置。</p>
+<hr />
+<p><strong>Q：如何配置 SAN（主题备用名称）</strong></p>
+<p>A：在配置对话框的「证书扩展字段」中，修改 <code>subjectAltName</code> 行：</p>
+<div class="codehilite"><pre><span></span><code><span class="gh">#</span> 单域名
+subjectAltName=DNS:example.com
+
+<span class="gh">#</span> 多域名 + IP
+subjectAltName=DNS:example.com,DNS:www.example.com,IP:192.168.1.100
+
+<span class="gh">#</span> 通配符域名
+subjectAltName=DNS:*.example.com
+</code></pre></div>
+
+<hr />
+<p><strong>Q：生成的证书文件名包含下划线</strong></p>
+<p>A：CommonName 中包含不可用于文件名的字符（如 <code>*</code>、<code>/</code>、<code>:</code>、<code>?</code> 等），程序会自动将其替换为下划线。</p>
+<hr />
+<p><strong>Q：如何验证证书是否正确签发</strong></p>
+<p>A：使用 OpenSSL 命令行验证：</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 验证终端证书是否由证书链正确签发</span>
+openssl<span class="w"> </span>verify<span class="w"> </span>-CAfile<span class="w"> </span>chain.pem<span class="w"> </span>&lt;name&gt;.crt.pem
+
+<span class="c1"># 查看证书详情</span>
+openssl<span class="w"> </span>x509<span class="w"> </span>-in<span class="w"> </span>&lt;name&gt;.crt.pem<span class="w"> </span>-text<span class="w"> </span>-noout
+</code></pre></div>
+
+<hr />
+<p><strong>Q：PFX 导入时提示密码错误</strong></p>
+<p>A：PFX 默认密码为 <code>pfxpassword</code>（全小写）。如果在配置对话框中设置了自定义密码，请使用对应密码。</p>
+  </div>
+  <div id="doc-footer">📄 文档转换 · 笔名 CetXiyuan</div>
+</div>
+
+<script>
+// ---- 全文复制 ----
+function copyAll() {
+  const el = document.getElementById('doc-content');
+  // 递归提取文本，保留换行结构
+  function extractText(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent;
+    const tag = node.tagName ? node.tagName.toLowerCase() : '';
+    if (tag === 'button') return '';
+    let text = '';
+    for (const child of node.childNodes) text += extractText(child);
+    if (['p','h1','h2','h3','h4','h5','h6','li','tr','pre','blockquote','div'].includes(tag))
+      text = text.trimEnd() + '\n';
+    if (['h1','h2','h3'].includes(tag)) text += '\n';
+    return text;
+  }
+  const raw = extractText(el).replace(/\n{3,}/g, '\n\n').trim();
+  navigator.clipboard.writeText(raw).then(() => toast('✅ 已复制全文'));
+}
+
+// ---- 代码块复制 ----
+document.querySelectorAll('#doc-content pre').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-code-btn';
+  btn.textContent = '📋 复制';
+  btn.onclick = () => {
+    const code = pre.querySelector('code');
+    navigator.clipboard.writeText(code ? code.innerText : pre.innerText)
+      .then(() => toast('✅ 已复制代码'));
+  };
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+
+// ---- 提示浮层 ----
+function toast(msg) {
+  const el = document.getElementById('copy-toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+</script>
+</body>
+</html>
