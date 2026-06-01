@@ -8,7 +8,7 @@ class CetLicenseInterface
 {
 public:
     virtual ~CetLicenseInterface() { }
-    enum AcitavteResult { 
+    enum ActivateResult { 
         ACTIVATE_CANCEL = 0,    /**< 激活取消 */
         ACTIVATE_OK,            /**< 激活成功 */
         ACTIVATE_ER             /**< 激活失败 */
