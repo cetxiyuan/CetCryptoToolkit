@@ -2,13 +2,13 @@
 ; 有关创建 Inno Setup 脚本文件的详细资料请查阅帮助文档！
 
 #define MyAppName "CetCryptoToolkit"
-#define MyAppVersion "2.3.1.5251"
+#define MyAppVersion "2.3.2"
 #define MyAppPublisher "CetXiyuan"
 #define MyAppURL "https://blog.csdn.net/xiyuan255"
 #define MyAppExeName "CetCryptoToolkit.exe"
 #define MyAppIcon  "F:\sharefolder\cetqtlearn\CetCryptoToolkit\CetCryptoToolkit-setup\favorite.ico"
 ;注： Release-正式版  Patch-补丁包
-#define MyVersionTip "Patch"
+#define MyVersionTip "Release"
 
 [Code]
 function GetCustomInstallPath(DefaultPath: string): string;
