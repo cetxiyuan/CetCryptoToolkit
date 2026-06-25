@@ -206,13 +206,14 @@ void MainWindow::initFeaturesPlugin()
         QTimer::singleShot(auto_timing_msec, this, [=]() {
             auto_timing_active = true;
             auto_timing_msec = auto_timing_msec * 2;
-            qWarning() << "[license:activate] The next activation time:" << auto_timing_msec;
+            qWarning() << "[license:activate] The next activation time(ms):" << auto_timing_msec;
             emit ui->licenseMenu->actions().first()->triggered(true);
         });
     });
-    QTimer::singleShot(10 * 1000, this, [=]() {                 /* 上电 10 秒后开始检测激活 */
-            emit activeAction->triggered(true);
-        });
+    QTimer::singleShot(30 * 1000, this, [=]() {                 /* 上电 30 秒后开始检测激活 */
+        qWarning() << "[license:activate] The first activation time(ms): 30000";
+        emit activeAction->triggered(true);
+    });
 
     LOAD_INTERFACE(m_cetUpdateInterface, "CetUpdatePlugin.dll", true);
     if (m_cetUpdateInterface)
