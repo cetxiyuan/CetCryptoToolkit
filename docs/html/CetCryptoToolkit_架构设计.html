@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CetCryptoToolkit 架构设计</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #fafafa; color: #1e2a3e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.7; }
+#doc-content { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
+h1 { font-size: 2em; margin: 0.8em 0 0.4em; padding-bottom: 0.3em; border-bottom: 2px solid #e2e8f0; color: #1a202c; }
+h2 { font-size: 1.5em; margin: 1.2em 0 0.5em; padding-bottom: 0.2em; border-bottom: 1px solid #e2e8f0; color: #2d3748; }
+h3 { font-size: 1.2em; margin: 1em 0 0.4em; color: #4a5568; }
+h4 { font-size: 1.05em; margin: 0.8em 0 0.3em; color: #4a5568; }
+p { margin: 0.6em 0; }
+a { color: #3182ce; text-decoration: none; }
+a:hover { text-decoration: underline; }
+pre { background: #1e1e1e; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 1em 0; }
+pre code { color: #abb2bf; font-family: "Cascadia Code", "Fira Code", Consolas, monospace; font-size: 0.9em; line-height: 1.5; }
+#doc-content code:not(pre code) { background: #f0f4f8 !important; color: #c7254e !important; padding: 2px 6px; border-radius: 3px; font-family: Consolas, monospace; font-size: 0.9em; }
+table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+th, td { border: 1px solid #e2e8f0; padding: 10px 14px; text-align: left; }
+th { background: #f6f8fa; font-weight: 600; color: #2d3748; }
+tr:nth-child(even) { background: #fafbfc; }
+blockquote { border-left: 4px solid #3182ce; padding: 0.5em 1em; margin: 1em 0; background: #f0f7ff; color: #4a5568; }
+ul, ol { padding-left: 2em; margin: 0.6em 0; }
+li { margin: 0.3em 0; }
+hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
+.copy-btn { position: fixed; top: 16px; right: 24px; padding: 8px 20px; background: #3182ce; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 1000; }
+.copy-btn:hover { background: #2b6cb0; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #2d3748; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.code-block-wrapper { position: relative; }
+.code-copy-btn { position: absolute; top: 8px; right: 8px; padding: 4px 10px; background: rgba(255,255,255,0.12); color: #abb2bf; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; cursor: pointer; font-size: 12px; }
+.code-copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+.footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; color: #a0aec0; font-size: 0.9em; text-align: center; }
+@media (max-width: 768px) { #doc-content { padding: 20px 12px; } pre { padding: 12px; font-size: 0.8em; } }
+</style>
+</head>
+<body>
+<button class="copy-btn" onclick="copyFullText()">📋 Copy</button>
+<div id="toast" class="toast"></div>
+<div id="doc-content">
+<h1>CetCryptoToolkit 架构设计</h1>
+
+<blockquote>
+<p>作者：CetXiyuan（璟·汐源忆醉）</p>
+<p>版本：v2.4.0</p>
+<p>平台：Windows，Qt 5.15.2 (MinGW, 32-bit)，OpenSSL 3.x</p>
+</blockquote>
+
+<hr>
+
+<h2>1. 项目定位</h2>
+
+<p>CetCryptoToolkit 是一款面向开发者和安全工程师的<strong>密码学工具箱</strong>桌面应用程序，集成了证书管理（PKI）、非对称加密/签名、对称加密、国密算法（SM2/SM3/SM4）等常用密码学操作，提供图形界面和底层 OpenSSL C API 双重访问路径。</p>
+
+<hr>
+
+<h2>2. 整体架构</h2>
+
+<h3>架构图</h3>
+
+<div class="code-block-wrapper"><pre><code>┌──────────────────────────────────────────────────────────────┐
+<p>│                        main.cpp                              │</p>
+<p>│   高 DPI 适配 / 样式初始化 / QApplication 入口               │</p>
+<p>└───────────────────────────┬──────────────────────────────────┘</p>
+<p>                            │</p>
+<p>┌───────────────────────────▼──────────────────────────────────┐</p>
+<p>│                    MainWindow（主窗口）                        │</p>
+<p>│  • UI 调度层，持有并协调所有功能模块                           │</p>
+<p>│  • 运行时动态加载外部插件（loadPlugin）                        │</p>
+<p>│  • 持有 OpenSSLHelper、CertificateManager 实例                │</p>
+<p>│  • 配置持久化：Configs/AppMaster.ini（QSettings）             │</p>
+<p>└─────┬────────────┬───────────────────────┬────────────────────┘</p>
+<p>      │            │                       │</p>
+<p>      ▼            ▼                       ▼</p>
+<p>┌──────────┐ ┌──────────────────┐ ┌─────────────────────────┐</p>
+<p>│OpenSSL   │ │CertificateManager│ │  插件接口层（interfaces/）│</p>
+<p>│Helper    │ │（证书管理对话框） │ │  CetLogManagerInterface  │</p>
+<p>│（核心）  │ │  调用 OpenSSL-   │ │  CetLicenseInterface     │</p>
+<p>│          │ │  Helper 完成签发 │ │  CetUpdateInterface      │</p>
+<p>└──────────┘ └──────────────────┘ │  CetProgressInterface    │</p>
+<p>                                  └─────────────────────────┘</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>关键数据流</h3>
+
+<div class="code-block-wrapper"><pre><code>用户操作（UI）
+<p>    → MainWindow slot</p>
+<p>        → OpenSSLHelper 方法（直接调用 OpenSSL C API）</p>
+<p>            → 返回 QByteArray / QSslCertificate / QSslKey</p>
+<p>        → 结果写入文件或显示在文本框</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>分层说明</h3>
+
+<table>
+<tr><td>层次</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>**表示层**</td><td>MainWindow + CertificateManager（Qt UI），负责用户交互</td></tr>
+<tr><td>**业务调度层**</td><td>MainWindow 的 slot 函数，负责数据获取、调用 OpenSSLHelper、结果展示</td></tr>
+<tr><td>**密码学核心层**</td><td>OpenSSLHelper，封装 OpenSSL 3.x C API，提供统一接口</td></tr>
+<tr><td>**基础设施层**</td><td>OpenSSL 3.x 动态库、Qt 5.15.2 框架</td></tr>
+<tr><td>**插件扩展层**</td><td>通过 Qt 插件机制加载 CetProductWizard.dll，提供日志/许可/更新功能</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>3. 功能模块详解</h2>
+
+<h3>3.1 OpenSSLHelper（`modules/opensslhelper/`）</h3>
+
+<p>所有 OpenSSL 操作的<strong>唯一封装点</strong>，直接调用 OpenSSL 3.x C API。</p>
+
+<table>
+<tr><td>功能类别</td><td>主要方法</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>初始化</td><td>`initOpenSSL()` / `cleanupOpenSSL()`</td><td>单例初始化，加载所有摘要/加密算法</td></tr>
+<tr><td>密钥对生成</td><td>`genKeyPair(algorithm, keySize, passphrase)`</td><td>支持 RSA/EC/SM2，返回 `QPair<公钥, 私钥>`</td></tr>
+<tr><td>自签证书</td><td>`genSelfCert(validDays, subjectDN, ...)`</td><td>生成自签名 X.509 证书</td></tr>
+<tr><td>CSR</td><td>`genCSR()` / `signCSR()`</td><td>生成证书请求 / CA 签发</td></tr>
+<tr><td>证书链</td><td>`genChain()` / `toP7b()` / `toPfx()`</td><td>生成链文件、P7B、PFX（PKCS#12）</td></tr>
+<tr><td>格式转换</td><td>`toDer()`</td><td>PEM → DER</td></tr>
+<tr><td>非对称加解密</td><td>`asymmetricEncrypt()` / `asymmetricDecrypt()`</td><td>RSA/EC 公钥加密 / 私钥解密</td></tr>
+<tr><td>摘要</td><td>`digest(data, hashAlgo)`</td><td>支持 MD5/SHA1/SHA256/SHA512/SM3 等 11 种</td></tr>
+<tr><td>签名/验签</td><td>`signData()` / `signVerify()`</td><td>RSA/EC/SM2，SM2 需提供 userId</td></tr>
+<tr><td>AES</td><td>`aesEncrypt()` / `aesDecrypt()`</td><td>ECB/CBC/GCM/CTR 模式，自动处理 IV+密文+Tag 格式</td></tr>
+<tr><td>AES-CMAC</td><td>`aes128GenerateCMAC()`</td><td>128 位消息认证码</td></tr>
+<tr><td>SM4</td><td>`sm4Encrypt()` / `sm4Decrypt()`</td><td>国密对称加密，仅支持 ECB/CBC</td></tr>
+<tr><td>SM2 辅助</td><td>`sm2PubKeyToDer()` / `sm2SignToDer()`</td><td>裸公钥/签名转 DER</td></tr>
+<tr><td>错误处理</td><td>`lastErrors()` / `appendError()`</td><td>内部错误队列，含 OpenSSL 错误字符串</td></tr>
+</tbody></table>
+
+<strong>支持的算法参数：</strong>
+<ul>
+<li>RSA 密钥长度：512 / 1024 / 2048 / 3072 / 4096 / 8192-bit</li>
+<li>EC 曲线：prime256v1 / secp256k1 / secp384r1 / secp521r1</li>
+<li>国密：SM2（公钥）/ SM3（摘要）/ SM4（对称）</li>
+</ul>
+
+<strong>openssl.exe 备用路径</strong>：以 <code>openssl</code> 前缀命名的方法族（<code>opensslGenKeyPair</code> 等）通过 PowerShell 调用系统的 <code>openssl.exe</code>（<code>opensslGenChain</code> 直接使用 PowerShell <code>Get-Content</code>），由宏 <code>USE_OPENSSL_TOOL_HANDLER=0/1</code> 控制是否启用。注意：
+<ul>
+<li>`opensslGenKeyPair` **仅支持 RSA 和 EC**，不支持 SM2</li>
+<li>`opensslGenSelfCert` 硬编码了 CA 扩展字段（`pathlen:1`），不支持自定义扩展</li>
+<li>`opensslGenSelfCert` 的 `hashAlgo` 参数格式为 `-sha256`（带前导短横线），与 API 路径的 `sha256` 格式不同</li>
+</ul>
+
+<hr>
+
+<h3>3.2 CertificateManager（`modules/certificatemanager/`）</h3>
+
+<p>证书配置对话框（<code>QDialog</code>），提供证书生成的 UI 界面和流程编排。</p>
+
+<strong>证书类型枚举：</strong>
+
+<table>
+<tr><td>枚举值</td><td>含义</td><td>pathlen</td><td>签发者</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`CERT_RootCACetXiyuan`</td><td>一级根证书（CetXiyuan 预置）</td><td>1</td><td>自签</td></tr>
+<tr><td>`CERT_RootCACustom`</td><td>一级根证书（自定义）</td><td>1</td><td>自签</td></tr>
+<tr><td>`CERT_SubordinateCA`</td><td>二级根证书</td><td>0</td><td>RootCA 签发</td></tr>
+<tr><td>`CERT_EndEntity`</td><td>终端证书</td><td>—</td><td>SubCA 签发</td></tr>
+</tbody></table>
+
+<strong>默认扩展字段：</strong>
+<ul>
+<li>RootCA：`basicConstraints=critical,CA:TRUE,pathlen:1` + `keyUsage=keyCertSign,cRLSign`</li>
+<li>SubCA：`basicConstraints=critical,CA:TRUE,pathlen:0` + `keyUsage=keyCertSign,cRLSign`</li>
+<li>EndEntity：`basicConstraints=CA:FALSE` + `keyUsage=digitalSignature,keyEncipherment` + `extendedKeyUsage=serverAuth,clientAuth` + `subjectAltName=DNS:example.com,IP:127.0.0.1`</li>
+</ul>
+
+<strong>输出文件（以 EndEntity 为例）：</strong>
+
+<table>
+<tr><td>文件名</td><td>格式</td><td>用途</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`<name>.key.pem`</td><td>PEM</td><td>私钥，妥善保管</td></tr>
+<tr><td>`<name>.pub.pem`</td><td>PEM</td><td>公钥</td></tr>
+<tr><td>`<name>.csr.pem`</td><td>PEM</td><td>证书请求（CSR）</td></tr>
+<tr><td>`<name>.crt.pem`</td><td>PEM</td><td>证书</td></tr>
+<tr><td>`<name>.crt.der`</td><td>DER</td><td>证书（二进制）</td></tr>
+<tr><td>`ca-chain-<name>.pem`</td><td>PEM</td><td>证书链（SubCA+RootCA）</td></tr>
+<tr><td>`ca-chain-<name>.p7b`</td><td>PKCS#7</td><td>证书链（Windows 可双击导入）</td></tr>
+<tr><td>`full-bundle-<name>.pfx`</td><td>PKCS#12</td><td>证书+私钥+证书链（默认密码 `pfxpassword`）</td></tr>
+</tbody></table>
+
+<hr>
+
+<h3>3.3 MainWindow（`mainwindow/`）</h3>
+
+<p>主窗口是所有功能的 <strong>UI 调度层</strong>，使用 QGroupBox 分为三个主要功能区：</p>
+
+<h4>证书管理页</h4>
+<ul>
+<li>证书类型选择（EndEntity / SubCA / RootCA）</li>
+<li>签发者显示</li>
+<li>证书参数配置（点击按钮弹出 CertificateManager 对话框）</li>
+<li>生成证书，输出到选定目录</li>
+</ul>
+
+<h4>非对称加密页（AEA）</h4>
+<ul>
+<li>私钥/公钥导入（文本输入或文件读取）</li>
+<li>支持 RSA/EC/SM2 加解密</li>
+<li>摘要计算（11 种算法）</li>
+<li>签名与验签（含 SM2 的 userId 参数）</li>
+</ul>
+
+<h4>对称加密页（SEA）</h4>
+<ul>
+<li>算法选择：AES / SM4</li>
+<li>模式选择：ECB / CBC / GCM / CTR（SM4 仅支持 ECB/CBC）</li>
+<li>密钥输入（Hex 格式，AES 支持 128/192/256-bit，SM4 固定 128-bit）</li>
+<li>IV 输入（Hex 格式，ECB 模式自动隐藏）</li>
+<li>加密/解密操作</li>
+<li>AES-128-CMAC 计算</li>
+</ol>
+
+<hr>
+
+<h3>3.4 插件接口层（`interfaces/`）</h3>
+
+<p>采用 Qt 插件机制，主窗口在启动时从固定路径动态加载 DLL：</p>
+
+<div class="code-block-wrapper"><pre><code>优先路径：D:/Program Files (x86)/CetXiyuan/CetToolDLLs/plugins/
+<p>备用路径：./plugins/</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<table>
+<tr><td>接口</td><td>DLL</td><td>功能</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`CetLogManagerInterface`</td><td>`CetLogManagerPlugin.dll`</td><td>日志管理窗口</td></tr>
+<tr><td>`CetLicenseInterface`</td><td>`CetLicensePlugin.dll`</td><td>授权验证</td></tr>
+<tr><td>`CetUpdateInterface`</td><td>`CetUpdatePlugin.dll`</td><td>软件更新检查</td></tr>
+<tr><td>`CetProgressInterface`</td><td>`CetProgressPlugin.dll`</td><td>进度显示</td></tr>
+</tbody></table>
+
+<blockquote>
+<p>插件缺失时仅弹出警告，不影响核心密码学功能使用。</p>
+</blockquote>
+
+<hr>
+
+<h2>4. 核心类/组件</h2>
+
+<h3>4.1 MainWindow（主窗口）</h3>
+
+<strong>文件</strong>：<code>mainwindow/mainwindow.h</code>、<code>mainwindow/mainwindow.cpp</code>
+
+<strong>继承关系</strong>：<code>QMainWindow</code>
+
+<strong>职责</strong>：应用程序主窗口，所有功能操作的调度中心。
+
+<table>
+<tr><td>类型</td><td>成员</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>**构造**</td><td>`MainWindow(QWidget *parent)`</td><td>初始化 UI 控件、加载插件、连接信号/槽、读取配置</td></tr>
+<tr><td>**析构**</td><td>`~MainWindow()`</td><td>释放插件接口、配置对象、UI 资源</td></tr>
+<tr><td>**公开方法**</td><td>`keyPressEvent(QKeyEvent *event)`</td><td>快捷键处理（F2 打开当前目录）</td></tr>
+<tr><td>**槽函数**</td><td>`on_outputDirToolButton_clicked()`</td><td>选择证书输出目录</td></tr>
+<tr><td>**槽函数**</td><td>`on_certTypeComboBox_currentTextChanged()`</td><td>证书类型切换时更新 CN/有效期/扩展</td></tr>
+<tr><td>**槽函数**</td><td>`on_genCertPushButton_clicked()`</td><td>触发证书生成流程</td></tr>
+<tr><td>**槽函数**</td><td>`on_aeaEncryptPushButton_clicked()`</td><td>非对称加密</td></tr>
+<tr><td>**槽函数**</td><td>`on_aeaDecryptPushButton_clicked()`</td><td>非对称解密</td></tr>
+<tr><td>**槽函数**</td><td>`on_aeaDigestPushButton_clicked()`</td><td>计算数据摘要</td></tr>
+<tr><td>**槽函数**</td><td>`on_aeaSignPushButton_clicked()`</td><td>数据签名</td></tr>
+<tr><td>**槽函数**</td><td>`on_aeaVerifySignPushButton_clicked()`</td><td>签名验证</td></tr>
+<tr><td>**槽函数**</td><td>`on_seaEncryptPushButton_clicked()`</td><td>对称加密（AES/SM4）</td></tr>
+<tr><td>**槽函数**</td><td>`on_seaDecryptPushButton_clicked()`</td><td>对称解密（AES/SM4）</td></tr>
+<tr><td>**槽函数**</td><td>`on_aes128cmacPushButton_clicked()`</td><td>AES-128-CMAC 计算</td></tr>
+<tr><td>**私有方法**</td><td>`getData(isFile, fileName, inBase64)`</td><td>从文件或文本获取原始数据</td></tr>
+<tr><td>**私有方法**</td><td>`loadPlugin(dllName)`</td><td>动态加载 Qt 插件 DLL</td></tr>
+<tr><td>**私有方法**</td><td>`initFeaturesPlugin()`</td><td>初始化许可/更新等插件功能</td></tr>
+</tbody></table>
+
+<strong>重要属性</strong>：
+
+<table>
+<tr><td>属性</td><td>类型</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`m_privateKey`</td><td>`QSslKey`</td><td>当前非对称加密的私钥</td></tr>
+<tr><td>`m_publicKey`</td><td>`QSslKey`</td><td>当前非对称加密的公钥</td></tr>
+<tr><td>`m_openSSLHelper`</td><td>`OpenSSLHelper *const`</td><td>密码学核心层对象</td></tr>
+<tr><td>`m_certManager`</td><td>`CertificateManager *const`</td><td>证书管理对话框</td></tr>
+<tr><td>`m_cetLogManagerInterface`</td><td>`CetLogManagerInterface *`</td><td>日志管理插件接口</td></tr>
+<tr><td>`m_settings`</td><td>`QSettings *const`</td><td>配置存储（Configs/AppMaster.ini，UTF-8）</td></tr>
+</tbody></table>
+
+<h3>4.2 OpenSSLHelper（密码学核心封装）</h3>
+
+<strong>文件</strong>：<code>modules/opensslhelper/opensslhelper.h/cpp</code>
+
+<strong>继承关系</strong>：<code>QObject</code>
+
+<strong>职责</strong>：封装 OpenSSL 3.x C API，是项目最核心的类。
+
+<strong>公开枚举</strong>：
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">enum SymMode {
+<p>    SYM_ECB,    // 电子密码本</p>
+<p>    SYM_CBC,    // 密码分组链接</p>
+<p>    SYM_GCM,    // 伽罗瓦计数器（认证加密）</p>
+<p>    SYM_CTR     // 计数器模式</p>
+<p>};</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<strong>密钥生成</strong>：
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QPair&lt;QSslKey, QSslKey&gt; genKeyPair(
+<p>    const QString &amp;algorithm,      // "RSA" / "EC" / "SM2"</p>
+<p>    const QString &amp;keySize = "2048-bit",</p>
+<p>    const QString &amp;passphrase = ""</p>
+<p>);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<strong>证书生成与签发</strong>：
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QSslCertificate genSelfCert(validDays, subjectDN, privateKey, extensions, hashAlgo="sha256", passphrase="");
+<p>QString genCSR(subjectDN, privateKey, extensions={}, passphrase="");</p>
+<p>QSslCertificate signCSR(validDays, csrPem, caCert, caPrivateKey, extensions={}, hashAlgo="sha256", passphrase="");</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<strong>证书格式转换</strong>：
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray genChain(subCACert, rootCACert);
+<p>QByteArray toP7b(chainPem);</p>
+<p>QByteArray toPfx(cert, privateKey, chainPem, passphrase="");</p>
+<p>QByteArray toDer(pemData);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<strong>摘要与签名</strong>：
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray digest(data, hashAlgo);
+<p>QByteArray signDigest(digest, privateKey, hashAlgo="sha256", passphrase="", userId="");</p>
+<p>QByteArray signData(data, privateKey, hashAlgo="sha256", passphrase="", userId="");</p>
+<p>bool signVerify(data, signature, publicKey, hashAlgo="sha256", userId="");</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<strong>对称与非对称加解密</strong>：
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">static QByteArray asymmetricEncrypt(data, publicKey);
+<p>static QByteArray asymmetricDecrypt(data, privateKey);</p>
+<p>static QByteArray aesEncrypt(plaintext, key, mode=SYM_ECB, iv={});</p>
+<p>static QByteArray aesDecrypt(ciphertext, key, mode=SYM_ECB);</p>
+<p>static QByteArray aes128GenerateCMAC(data, key);</p>
+<p>static QByteArray aesGenerateKey(keySize=32);</p>
+<p>static QByteArray aesGenerateIV(mode);</p>
+<p>QByteArray sm4Encrypt(plaintext, key, mode, iv);</p>
+<p>QByteArray sm4Decrypt(ciphertext, key, mode, iv);</p>
+<p>QByteArray sm2PubKeyToDer(rawPubKey);</p>
+<p>QByteArray sm2SignToDer(rawSignKey);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<strong>支持列表查询</strong>：
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">static QStringList supportKeyAlgorithmNames();   // {"RSA", "EC", "SM2"}
+<p>static QStringList supportDigestNames();          // MD5/SHA1/SHA2/SHA3/SM3</p>
+<p>static QStringList supportECCurveNames();         // prime256v1/secp256k1/secp384r1/secp521r1</p>
+<p>static QStringList supportRSABitsNames();         // 512-bit ~ 8192-bit</p>
+<p>static QStringList supportSymModesNames();        // ECB/CBC/GCM/CTR</p>
+<p>static SymMode symModeFromName(name);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<strong>错误管理</strong>：
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QString lastErrors() const;
+<p>void clearErrors();</p>
+<p>void appendError(const QString &amp;error);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>4.3 CertificateManager（证书管理对话框）</h3>
+
+<strong>文件</strong>：<code>modules/certificatemanager/certificatemanager.h/cpp</code>
+
+<strong>继承关系</strong>：<code>QDialog</code>
+
+<table>
+<tr><td>类型</td><td>成员</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>**枚举**</td><td>`CertType { CERT_EndEntity=0, CERT_SubordinateCA, CERT_RootCACustom, CERT_RootCACetXiyuan }`</td><td>四种证书类型</td></tr>
+<tr><td>**公开方法**</td><td>`genCertificate(type, outputDir)` → `bool`</td><td>统一的证书生成入口</td></tr>
+<tr><td>**公开方法**</td><td>`genCertificateCode(type, outputDir, cn, subjectDN, extMessage)`</td><td>API 代码路径（默认）</td></tr>
+<tr><td>**公开方法**</td><td>`genCertificateOpenssl(type, outputDir, cn, subjectDN, extMessage)`</td><td>命令行路径</td></tr>
+<tr><td>**公开方法**</td><td>`setCommonName(cn)` / `setValidDays(days)` / `setCertExts(exts)`</td><td>配置方法</td></tr>
+<tr><td>**信号**</td><td>`issuerChanged(int type)`</td><td>签发者变更通知</td></tr>
+<tr><td>**属性**</td><td>`m_subCAKeyPair` / `m_rootCAKeyPair`</td><td>CA 密钥对缓存</td></tr>
+<tr><td>**属性**</td><td>`m_subCACert` / `m_rootCACert`</td><td>CA 证书缓存</td></tr>
+</tbody></table>
+
+<h3>4.4 插件接口类</h3>
+
+<strong>CetLicenseInterface</strong> — 许可管理：
+
+<table>
+<tr><td>方法</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`initialize(productId)`</td><td>通过产品 ID 初始化</td></tr>
+<tr><td>`activate()` → `int`</td><td>静默激活，返回 `ACTIVATE_CANCEL(0)` / `ACTIVATE_OK(1)` / `ACTIVATE_ER(2)`</td></tr>
+<tr><td>`activateWindow()` → `int`</td><td>弹窗激活</td></tr>
+<tr><td>`resultString()` → `QString`</td><td>激活结果描述</td></tr>
+<tr><td>`solidKey()` → `QString`</td><td>设备固钥</td></tr>
+</tbody></table>
+
+<strong>CetUpdateInterface</strong> — 更新管理：
+
+<table>
+<tr><td>方法</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`checkUpdate(appName, appVersion, callback)`</td><td>检查新版本</td></tr>
+<tr><td>`inUpdating(newVersion)` → `bool`</td><td>是否正在更新</td></tr>
+</tbody></table>
+
+<strong>CetLogManagerInterface</strong> — 日志管理：<code>show()</code> 显示控制窗口。
+
+<strong>CetProgressInterface</strong> — 进度显示：空接口，预留扩展。
+
+<hr>
+
+<h2>5. 关键数据流</h2>
+
+<h3>5.1 证书生成流程（以终端证书为例）</h3>
+
+<div class="code-block-wrapper"><pre><code>用户点击"生成证书"按钮
+<p>    │</p>
+<p>    ▼</p>
+<p>MainWindow::on_genCertPushButton_clicked()</p>
+<p>    │</p>
+<p>    ▼</p>
+<p>CertificateManager::genCertificate(type, outputDir)</p>
+<p>    │  收集 UI 输入（国家/省份/城市/组织/部门/CN/邮箱）→ 构建 Subject DN</p>
+<p>    │</p>
+<p>    ├── [USE_OPENSSL_TOOL_HANDLER=0] genCertificateCode()</p>
+<p>    │       │</p>
+<p>    │       ├── 1. OpenSSLHelper::genKeyPair("RSA"/"EC"/"SM2", keySize, pass)</p>
+<p>    │       │       └── EVP_PKEY_keygen_init() → EVP_PKEY_generate() → QPair&lt;QSslKey, QSslKey&gt;</p>
+<p>    │       │</p>
+<p>    │       ├── 2. OpenSSLHelper::genCSR(subjectDN, privateKey, extensions, pass)</p>
+<p>    │       │       └── X509_REQ_new() → 设置主题/公钥/扩展 → X509_REQ_sign_ctx() → PEM CSR</p>
+<p>    │       │</p>
+<p>    │       ├── 3. OpenSSLHelper::signCSR(validDays, csrPem, caCert, caKey, extensions, hashAlgo)</p>
+<p>    │       │       └── 解析 CSR → 创建 X509 → 设置序列号/有效期/扩展 → X509_sign_ctx()</p>
+<p>    │       │</p>
+<p>    │       ├── 4. 保存证书文件（PEM/DER 双格式）</p>
+<p>    │       │</p>
+<p>    │       ├── 5. genChain(subCACert, rootCACert) → ca-chain.pem</p>
+<p>    │       ├── 6. toP7b(chainPem) → ca-chain.p7b</p>
+<p>    │       └── 7. toPfx(cert, privateKey, chainPem, pfxPass) → full-bundle.pfx</p>
+<p>    │</p>
+<p>    └── 显示结果弹窗</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>5.2 对称加密流程（AES/SM4）</h3>
+
+<div class="code-block-wrapper"><pre><code>用户点击"加密"按钮
+<p>    │</p>
+<p>    ▼</p>
+<p>MainWindow::on_seaEncryptPushButton_clicked()</p>
+<p>    │</p>
+<p>    ├── 1. getData(isFile, fileName, inBase64)</p>
+<p>    │       ├── 文件模式：QFile::readAll()</p>
+<p>    │       └── 文本模式：QByteArray::fromHex(text)</p>
+<p>    │</p>
+<p>    ├── 2. 从 UI 获取 key/IV/mode</p>
+<p>    │       key = QByteArray::fromHex(seaKeyLineEdit)</p>
+<p>    │       iv  = QByteArray::fromHex(seaIvLineEdit)</p>
+<p>    │       mode = OpenSSLHelper::symModeFromName(comboBox)</p>
+<p>    │</p>
+<p>    ├── 3. 执行加密</p>
+<p>    │       AES: aesEncrypt(data, key, mode, iv)</p>
+<p>    │       │   返回格式：GCM=IV+密文+Tag | 其他=IV+密文</p>
+<p>    │       SM4: sm4Encrypt(data, key, mode, iv)</p>
+<p>    │           返回格式：仅密文（无 IV 前缀，需单独管理 IV）</p>
+<p>    │</p>
+<p>    └── 4. 输出（Base64/Hex/文件）</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>5.3 许可激活流程</h3>
+
+<div class="code-block-wrapper"><pre><code>应用启动
+<p>    │</p>
+<p>    ▼</p>
+<p>initFeaturesPlugin()</p>
+<p>    │</p>
+<p>    ├── 1. 加载 CetLicensePlugin.dll（QPluginLoader）</p>
+<p>    ├── 2. initialize(PRODUCT_NAME)</p>
+<p>    ├── 3. 上电 30 秒后首次自动激活</p>
+<p>    └── 4. 定时激活（间隔 30min→60min→120min... 翻倍递增）</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>6. 依赖关系</h2>
+
+<h3>6.1 外部库依赖</h3>
+
+<table>
+<tr><td>库</td><td>版本</td><td>用途</td><td>链接方式</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>**OpenSSL**</td><td>3.x</td><td>所有密码学运算</td><td>动态链接 `libcrypto-3.dll` / `libssl-3.dll`</td></tr>
+<tr><td>**Qt**</td><td>5.15.2</td><td>GUI 框架、网络、文件操作</td><td>动态链接</td></tr>
+<tr><td>**CetProductWizard**</td><td>—</td><td>插件宿主 DLL</td><td>运行时 `QPluginLoader`</td></tr>
+</tbody></table>
+
+<h3>6.2 Qt 模块依赖</h3>
+
+<div class="code-block-wrapper"><pre><code>QT += core gui network widgets</code></pre>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<table>
+<tr><td>模块</td><td>用途</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`QtCore`</td><td>QObject、QByteArray、QTimer、QProcess</td></tr>
+<tr><td>`QtGui`</td><td>QKeyEvent、高 DPI 支持</td></tr>
+<tr><td>`QtWidgets`</td><td>QMainWindow、QDialog、QMessageBox、QFileDialog</td></tr>
+<tr><td>`QtNetwork`</td><td>QSslCertificate、QSslKey（Qt 内置 SSL 类型）</td></tr>
+</tbody></table>
+
+<h3>6.3 构建依赖树</h3>
+
+<div class="code-block-wrapper"><pre><code>CetCryptoToolkit.pro（qmake 主入口）
+<p>├── mainwindow/mainwindow.pri</p>
+<p>│   └── mainwindow.h/cpp/ui</p>
+<p>├── modules/modules.pri</p>
+<p>│   ├── opensslhelper/opensslhelper.pri</p>
+<p>│   │   └── opensslhelper.h/cpp</p>
+<p>│   └── certificatemanager/certificatemanager.pri</p>
+<p>│       └── certificatemanager.h/cpp/ui</p>
+<p>├── interfaces/interfaces.pri</p>
+<p>│   └── *.h（纯头文件，无 .cpp）</p>
+<p>└── LIBS: -lCetProductWizard -lcrypto-3 -lssl-3</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>6.4 内部模块依赖</h3>
+
+<div class="code-block-wrapper"><pre><code>main.cpp
+<p>  └── mainwindow.h</p>
+<p>        ├── opensslhelper.h ────── openssl/*.h (OpenSSL C API)</p>
+<p>        ├── certificatemanager.h ── opensslhelper.h</p>
+<p>        ├── cetlogmanagerinterface.h</p>
+<p>        ├── cetlicenseinterface.h</p>
+<p>        ├── cetupdateinterface.h</p>
+<p>        └── cetprogressinterface.h</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<code>CertificateManager</code> 依赖 <code>OpenSSLHelper</code>，<code>MainWindow</code> 依赖所有模块。
+
+<hr>
+
+<h2>7. 配置与目录约定</h2>
+
+<table>
+<tr><td>路径</td><td>用途</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`Configs/AppMaster.ini`</td><td>应用配置（QSettings，UTF-8 编码）</td></tr>
+<tr><td>`dir-certs/`</td><td>证书输出目录</td></tr>
+<tr><td>`dir-asymmetrics/`</td><td>非对称加密文件目录</td></tr>
+<tr><td>`dir-symmetrics/`</td><td>对称加密文件目录</td></tr>
+<tr><td>`libs/`</td><td>预编译 DLL（OpenSSL 3.x、CetProductWizard）</td></tr>
+<tr><td>`plugins/`</td><td>Qt 插件 DLL 搜索目录（备用路径）</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>8. 国密算法支持说明</h2>
+
+<p>OpenSSL 3.x 默认 provider 已内置国密支持，程序启动时检测并打印：</p>
+
+<div class="code-block-wrapper"><pre><code>SM2 is in default provider
+<p>SM3 is in default provider</p>
+<p>SM4 is in default provider</p>
+<p>CMAC is in default provider</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<p>SM2 签名特殊性：需要传入 <code>userId</code>（默认为标准值 <code>1234567812345678</code>），这是 SM2 签名算法的 ZA 值计算必须项，与 RSA/EC 签名接口有所不同。</p>
+
+<p>若未打印国密日志，说明 OpenSSL 版本不支持国密，需升级至 3.0.18+。</p>
+
+<hr>
+
+<h2>9. 设计决策与取舍</h2>
+
+<h3>9.1 双实现路径：OpenSSL API vs openssl.exe 命令行</h3>
+
+<strong>决策</strong>：证书生成保留两套实现，通过 <code>USE_OPENSSL_TOOL_HANDLER</code> 宏切换（默认 <code>0</code>，即 API 路径）。
+
+<strong>理由</strong>：
+<ul>
+<li>**API 路径**：直接调用 OpenSSL C API，性能更高，无需外部进程，不依赖 `openssl.exe` 路径</li>
+<li>**命令行路径**：用于调试和验证，API 路径出问题时对比命令行结果</li>
+</ul>
+
+<strong>取舍</strong>：双代码路径的维护成本，但 API 路径更适合生产部署。
+
+<h3>9.2 插件化的功能扩展</h3>
+
+<strong>决策</strong>：日志/许可/更新/进度功能通过 Qt 插件机制（<code>QPluginLoader</code>）实现。
+
+<strong>理由</strong>：解耦主程序与商业功能，各模块独立开发升级。基础版/Custom 版/全功能版通过不同插件组合实现。插件缺失仅警告，不影响核心密码学功能。
+
+<h3>9.3 三级 PKI 证书体系</h3>
+
+<p>RootCA（pathlen:1）→ SubCA（pathlen:0）→ EndEntity，严格限制证书链深度。终端证书支持 SAN 扩展。</p>
+
+<hr>
+
+<h2>10. 扩展点</h2>
+
+<h3>10.1 新算法支持</h3>
+
+<table>
+<tr><td>扩展点</td><td>位置</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>新增密钥算法</td><td>`supportedKeyAlgorithms` 静态列表</td><td>添加条目即可出现在 UI</td></tr>
+<tr><td>新增摘要算法</td><td>`supportedDigests` 静态列表</td><td>OpenSSL 3.x 支持的 EVP_MD 都可添加</td></tr>
+<tr><td>新增 EC 曲线</td><td>`supportedEcCurves` 静态列表</td><td>需 OpenSSL 支持该曲线 NID</td></tr>
+<tr><td>新增对称算法</td><td>`opensslhelper.cpp` 添加新方法</td><td>如 SM4-GCM</td></tr>
+</tbody></table>
+
+<h3>10.2 插件接口扩展</h3>
+
+<ul>
+<li>`CetProgressInterface` 当前为空接口，可添加进度条、取消操作</li>
+<li>所有接口通过 Qt 插件机制加载新 DLL</li>
+</ul>
+
+<h3>10.3 UI/功能扩展</h3>
+
+<table>
+<tr><td>扩展点</td><td>位置</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>新增证书类型</td><td>`CertType` 枚举 + `genCertificateCode()` switch</td><td>中间 CA 层级</td></tr>
+<tr><td>新增加密模式</td><td>`SymMode` 枚举</td><td>XTS、CFB、OFB 等</td></tr>
+<tr><td>证书吊销</td><td>CRL 生成方法</td><td>代码已注释，可供参考</td></tr>
+<tr><td>OCSP 响应</td><td>注释中有 `OCSP=URI:...` 示例</td><td>OCSP stapling</td></tr>
+</tbody></table>
+</div>
+<div class="footer"><p>📄 文档转换 · 笔名 CetXiyuan</p></div>
+<script>
+hljs.highlightAll();
+
+function copyFullText() {{
+    var content = document.getElementById("doc-content");
+    var text = content.innerText || content.textContent;
+    navigator.clipboard.writeText(text).then(function() {{
+        showToast("✅ 已复制全文");
+    }});
+}}
+
+function copyCodeBlock(btn) {{
+    var code = btn.parentElement.querySelector("code").textContent;
+    navigator.clipboard.writeText(code).then(function() {{
+        showToast("✅ 已复制代码");
+    }});
+}}
+
+function showToast(msg) {{
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(function() {{
+        t.classList.remove("show");
+    }}, 2000);
+}}
+</script>
+</body>
+</html>

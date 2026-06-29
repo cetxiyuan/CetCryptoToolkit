@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CetCryptoToolkit API 参考</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #fafafa; color: #1e2a3e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.7; }
+#doc-content { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
+h1 { font-size: 2em; margin: 0.8em 0 0.4em; padding-bottom: 0.3em; border-bottom: 2px solid #e2e8f0; color: #1a202c; }
+h2 { font-size: 1.5em; margin: 1.2em 0 0.5em; padding-bottom: 0.2em; border-bottom: 1px solid #e2e8f0; color: #2d3748; }
+h3 { font-size: 1.2em; margin: 1em 0 0.4em; color: #4a5568; }
+h4 { font-size: 1.05em; margin: 0.8em 0 0.3em; color: #4a5568; }
+p { margin: 0.6em 0; }
+a { color: #3182ce; text-decoration: none; }
+a:hover { text-decoration: underline; }
+pre { background: #1e1e1e; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 1em 0; }
+pre code { color: #abb2bf; font-family: "Cascadia Code", "Fira Code", Consolas, monospace; font-size: 0.9em; line-height: 1.5; }
+#doc-content code:not(pre code) { background: #f0f4f8 !important; color: #c7254e !important; padding: 2px 6px; border-radius: 3px; font-family: Consolas, monospace; font-size: 0.9em; }
+table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+th, td { border: 1px solid #e2e8f0; padding: 10px 14px; text-align: left; }
+th { background: #f6f8fa; font-weight: 600; color: #2d3748; }
+tr:nth-child(even) { background: #fafbfc; }
+blockquote { border-left: 4px solid #3182ce; padding: 0.5em 1em; margin: 1em 0; background: #f0f7ff; color: #4a5568; }
+ul, ol { padding-left: 2em; margin: 0.6em 0; }
+li { margin: 0.3em 0; }
+hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
+.copy-btn { position: fixed; top: 16px; right: 24px; padding: 8px 20px; background: #3182ce; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 1000; }
+.copy-btn:hover { background: #2b6cb0; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #2d3748; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.code-block-wrapper { position: relative; }
+.code-copy-btn { position: absolute; top: 8px; right: 8px; padding: 4px 10px; background: rgba(255,255,255,0.12); color: #abb2bf; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; cursor: pointer; font-size: 12px; }
+.code-copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+.footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; color: #a0aec0; font-size: 0.9em; text-align: center; }
+@media (max-width: 768px) { #doc-content { padding: 20px 12px; } pre { padding: 12px; font-size: 0.8em; } }
+</style>
+</head>
+<body>
+<button class="copy-btn" onclick="copyFullText()">📋 Copy</button>
+<div id="toast" class="toast"></div>
+<div id="doc-content">
+<h1>CetCryptoToolkit API 参考</h1>
+
+<blockquote>
+<p>适用版本：CetCryptoToolkit v2.4.0</p>
+<p>核心类：`OpenSSLHelper`</p>
+<p>文件：`modules/opensslhelper/opensslhelper.h/cpp`</p>
+</blockquote>
+
+<hr>
+
+<h2>1. 全局宏与常量（version.h）</h2>
+
+<h3>1.1 版本信息</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">#define IS_RELEASE_VERSION      ( 1 )   // 正式版=1，开发版=0
+<p>#define APP_NAME                "CetCryptoToolkit"</p>
+<p>#define PRODUCT_ICON            "favorite.ico"</p>
+
+<p>#define VER_MAJOR               2       // 主版本号</p>
+<p>#define VER_MINOR               4       // 次版本号</p>
+<p>#define VER_MICRO               0       // 小版本号</p>
+
+<p>#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK240.G631)"</p>
+<p>// G631: G=2026年, 6=6月, 31=25日 (31-6=25), 即2026-06-25</p>
+
+<p>#define PATCH_PACKET            "5251"  // 月+日+序号（开发版使用）</p>
+<p>#define COMPANY_NAME            "CetXiyuan"</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>1.2 版本工具宏</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">#define VERSION_CHECK(major, minor, micro)  (((major)&lt;&lt;16)|((minor)&lt;&lt;8)|((micro)&lt;&lt;0))
+<p>#define VERSION_STRING(major, minor, micro) __STR(major) "." __STR(minor) "." __STR(micro)</p>
+<p>#define DIRECT_STRING(major, minor, micro)  __STR(major) __STR(minor) __STR(micro)</p>
+
+<p>#if (IS_RELEASE_VERSION &gt; 0)</p>
+<p>#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO)  // "2.4.0"</p>
+<p>#else</p>
+<p>#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO) "." PATCH_PACKET</p>
+<p>#endif</p>
+
+<p>#define FILE_DESCRIPTION        APP_NAME " based on Qt 5.15.2 (MinGW, 32 bit)"</p>
+<p>#define LEGAL_COPYRIGHT         "Copyright 2008-2035 The " COMPANY_NAME " Ltd. All rights reserved."</p>
+<p>#define PRODUCT_NAME            APP_NAME DIRECT_STRING(VER_MAJOR, VER_MINOR, 0)</p>
+<p>#define ORGANIZATION_DOMAIN     "https://www.cetxiyuan.com/"</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>2. OpenSSLHelper — 密码学核心封装</h2>
+
+<strong>文件</strong>：<code>modules/opensslhelper/opensslhelper.h/cpp</code>
+<strong>继承</strong>：<code>QObject</code>
+
+<h3>2.1 枚举</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">enum SymMode {
+<p>    SYM_ECB,    // 电子密码本模式（不推荐用于多块数据）</p>
+<p>    SYM_CBC,    // 密码分组链接模式</p>
+<p>    SYM_GCM,    // 伽罗瓦计数器模式（认证加密，含 Tag）</p>
+<p>    SYM_CTR     // 计数器模式（流式加密）</p>
+<p>};</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>2.2 生命周期</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">explicit OpenSSLHelper(QObject *parent = nullptr);  // 构造时自动调用 initOpenSSL()
+<p>~OpenSSLHelper();                                    // 析构时自动调用 cleanupOpenSSL()</p>
+
+<p>static void initOpenSSL();      // 加载所有算法和字符串，单例模式</p>
+<p>static void cleanupOpenSSL();   // EVP_cleanup() + CRYPTO_cleanup_all_ex_data()</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<p>启动时自动检测并打印国密支持：</p>
+
+<div class="code-block-wrapper"><pre><code>SM2 is in default provider
+<p>SM3 is in default provider</p>
+<p>SM4 is in default provider</p>
+<p>CMAC is in default provider</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>2.3 密钥生成</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QPair&lt;QSslKey, QSslKey&gt; genKeyPair(
+<p>    const QString &amp;algorithm,       // "RSA" / "EC" / "SM2"</p>
+<p>    const QString &amp;keySize = "2048-bit",</p>
+<p>    const QString &amp;passphrase = ""  // 非空时用 AES-256-CBC 加密私钥（PKCS#8）</p>
+<p>);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<ul>
+<li>**返回值**：`QPair<公钥, 私钥>`，失败时两个 QSslKey 均为 null</li>
+<li>**RSA** 密钥大小：512 / 1024 / 2048 / 3072 / 4096 / 8192-bit</li>
+<li>**EC** 曲线：prime256v1 / secp256k1 / secp384r1 / secp521r1</li>
+<li>**SM2**：固定 256-bit 曲线，keySize 参数忽略</li>
+</ul>
+
+<h3>2.4 证书生成与签发</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">// 生成自签证书
+<p>QSslCertificate genSelfCert(</p>
+<p>    int validDays,                    // 有效天数</p>
+<p>    const QString &amp;subjectDN,         // "/C=CN/ST=Fujian/O=CetXiyuan/CN=Root CA"</p>
+<p>    const QSslKey &amp;privateKey,        // 签名用私钥</p>
+<p>    const QStringList &amp;extensions,    // X.509 v3 扩展列表</p>
+<p>    const QString &amp;hashAlgo = "sha256",</p>
+<p>    const QString &amp;passphrase = ""</p>
+<p>);</p>
+
+<p>// 生成 CSR（PEM 格式返回）</p>
+<p>QString genCSR(</p>
+<p>    const QString &amp;subjectDN,</p>
+<p>    const QSslKey &amp;privateKey,</p>
+<p>    const QStringList &amp;extensions = {},</p>
+<p>    const QString &amp;passphrase = ""</p>
+<p>);</p>
+
+<p>// CA 签发 CSR</p>
+<p>QSslCertificate signCSR(</p>
+<p>    int validDays,</p>
+<p>    const QString &amp;csrPem,            // PEM 格式 CSR</p>
+<p>    const QSslCertificate &amp;caCert,    // CA 证书</p>
+<p>    const QSslKey &amp;caPrivateKey,      // CA 私钥</p>
+<p>    const QStringList &amp;extensions = {},</p>
+<p>    const QString &amp;hashAlgo = "sha256",</p>
+<p>    const QString &amp;passphrase = ""</p>
+<p>);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<blockquote>
+<p>SM2 密钥使用这些方法时，内部自动启用 SM3 作为签名摘要算法。</p>
+</blockquote>
+
+<h3>2.5 证书格式转换</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray genChain(const QSslCertificate &amp;subCACert, const QSslCertificate &amp;rootCACert);
+<p>// PEM 拼接：SubCA + RootCA</p>
+
+<p>QByteArray toP7b(const QByteArray &amp;chainPem);</p>
+<p>// PEM → PKCS#7（DER 编码）</p>
+
+<p>QByteArray toPfx(</p>
+<p>    const QSslCertificate &amp;cert,</p>
+<p>    const QSslKey &amp;privateKey,</p>
+<p>    const QByteArray &amp;chainPem,       // 证书链 PEM</p>
+<p>    const QString &amp;passphrase = ""    // PFX 保护密码</p>
+<p>);</p>
+<p>// 生成 PKCS#12（证书+私钥+证书链）</p>
+
+<p>QByteArray toDer(const QByteArray &amp;pemData);</p>
+<p>// PEM → DER，自动识别内容类型（私钥/公钥/CSR/证书）</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>2.6 摘要与签名</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">// 计算摘要（11 种算法：MD5/SHA1/SHA224/SHA256/SHA384/SHA512/SHA3系列/SM3）
+<p>QByteArray digest(const QByteArray &amp;data, const QString &amp;hashAlgo);</p>
+
+<p>// 对摘要值签名</p>
+<p>QByteArray signDigest(</p>
+<p>    const QByteArray &amp;digest,</p>
+<p>    const QSslKey &amp;privateKey,</p>
+<p>    const QString &amp;hashAlgo = "sha256",</p>
+<p>    const QString &amp;passphrase = "",</p>
+<p>    const QByteArray &amp;userId = ""     // SM2：默认 "1234567812345678"</p>
+<p>);</p>
+<p>// RSA：RSA_PKCS1_PADDING；SM2：EVP_PKEY_CTX_set1_id()</p>
+
+<p>// 对原始数据签名（内部先摘要再签名）</p>
+<p>QByteArray signData(</p>
+<p>    const QByteArray &amp;data,</p>
+<p>    const QSslKey &amp;privateKey,</p>
+<p>    const QString &amp;hashAlgo = "sha256",</p>
+<p>    const QString &amp;passphrase = "",</p>
+<p>    const QByteArray &amp;userId = ""</p>
+<p>);</p>
+
+<p>// 验证签名</p>
+<p>bool signVerify(</p>
+<p>    const QByteArray &amp;data,</p>
+<p>    const QByteArray &amp;signature,      // 需 DER 格式（SM2 签名以 0x30 开头）</p>
+<p>    const QSslKey &amp;publicKey,</p>
+<p>    const QString &amp;hashAlgo = "sha256",</p>
+<p>    const QByteArray &amp;userId = ""</p>
+<p>);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>2.7 非对称加解密</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">static QByteArray asymmetricEncrypt(const QByteArray &amp;data, const QSslKey &amp;publicKey);
+<p>// RSA：RSA_PKCS1_OAEP_PADDING + SHA-256 MGF1</p>
+<p>// EC/SM2：默认参数</p>
+
+<p>static QByteArray asymmetricDecrypt(const QByteArray &amp;data, const QSslKey &amp;privateKey);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>2.8 AES 对称加解密</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">static QByteArray aesEncrypt(
+<p>    const QByteArray &amp;plaintext,</p>
+<p>    const QByteArray &amp;key,            // 16/24/32 字节 → AES-128/192/256</p>
+<p>    SymMode mode = SYM_ECB,</p>
+<p>    const QByteArray &amp;iv = QByteArray()</p>
+<p>);</p>
+<p>// 输出格式：ECB/CBC/CTR = IV(16B) + 密文, GCM = IV(12B) + 密文 + Tag(16B)</p>
+
+<p>static QByteArray aesDecrypt(</p>
+<p>    const QByteArray &amp;ciphertext,     // 需与加密输出格式一致</p>
+<p>    const QByteArray &amp;key,</p>
+<p>    SymMode mode = SYM_ECB</p>
+<p>);</p>
+<p>// GCM 模式自动分离 IV/密文/Tag 并验证完整性</p>
+
+<p>static QByteArray aes128GenerateCMAC(const QByteArray &amp;data, const QByteArray &amp;key);</p>
+<p>static QByteArray aesGenerateKey(int keySize = 32);     // 随机密钥</p>
+<p>static QByteArray aesGenerateIV(SymMode mode);          // 随机 IV（GCM=12B, 其他=16B）</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>2.9 SM4 对称加解密</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray sm4Encrypt(const QByteArray &amp;plaintext, const QByteArray &amp;key,
+<p>                       SymMode mode, const QByteArray &amp;iv);</p>
+<p>// 仅支持 SYM_ECB 和 SYM_CBC（GCM/CTR 返回空）</p>
+<p>// 返回值：仅密文（不含 IV 前缀）</p>
+
+<p>QByteArray sm4Decrypt(const QByteArray &amp;ciphertext, const QByteArray &amp;key,</p>
+<p>                       SymMode mode, const QByteArray &amp;iv);</p>
+<p>// 仅支持 SYM_ECB 和 SYM_CBC</p>
+<p>// ciphertext 不含 IV 前缀，需单独传入加密时使用的 IV</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<ul>
+<li>SM4 固定 16 字节密钥（128-bit）</li>
+<li>**SM4 仅支持 ECB 和 CBC 两种模式**（不支持 GCM/CTR，选择 GCM/CTR 将返回空）</li>
+<li>**SM4 解密必须手动传入 IV**，与 AES 不同（AES 自动从密文前缀解析）</li>
+<li>**SM4 密文不含 IV 前缀**，需单独管理 IV（与 AES 不同）</li>
+</ul>
+
+<h3>2.10 SM2 格式转换</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray sm2PubKeyToDer(const QByteArray &amp;rawPubKey);  // 裸公钥(65B) → DER
+<p>QByteArray sm2SignToDer(const QByteArray &amp;rawSignKey);   // 裸签名(r||s, 64B) → DER</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<ul>
+<li>SM2 裸签名首字节不是 `0x30`（DER 格式标识），需用 `sm2SignToDer()` 转换后才能验签</li>
+</ul>
+
+<h3>2.11 支持列表查询</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">static QStringList supportKeyAlgorithmNames();   // {"RSA", "EC", "SM2"}
+<p>static QStringList supportDigestNames();          // {MD5, SHA1, SHA224, SHA256, SHA384, SHA512, SHA3-224, SHA3-256, SHA3-384, SHA3-512, SM3}</p>
+<p>static QStringList supportECCurveNames();         // {prime256v1, secp256k1, secp384r1, secp521r1}</p>
+<p>static QStringList supportRSABitsNames();         // {512-bit, 1024-bit, 2048-bit, 3072-bit, 4096-bit, 8192-bit}</p>
+<p>static QStringList supportSymModesNames();        // {ECB, CBC, GCM, CTR}</p>
+
+<p>static int keyAlgorithmFromName(const QString &amp;name);    // → EVP_PKEY_*</p>
+<p>static int ecCurveFromName(const QString &amp;name);         // → NID_*</p>
+<p>static int rsaBitsFromName(const QString &amp;name);         // → 512/1024/...</p>
+<p>static SymMode symModeFromName(const QString &amp;name);     // → SymMode</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>2.12 证书文件读写</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">static QList&lt;QSslCertificate&gt; loadCertificates(const QString &amp;filePath);
+<p>static bool saveCertificate(const QSslCertificate &amp;cert, const QString &amp;filePath);</p>
+<p>static QList&lt;QSslCertificate&gt; loadPKCS12(const QByteArray &amp;pkcs12Data,</p>
+<p>                                          const QString &amp;passphrase,</p>
+<p>                                          QSslKey *privateKey = nullptr);</p>
+<p>static QSslKey loadPublicKey(const QString &amp;filePath);</p>
+<p>static bool savePublicKey(const QSslKey &amp;publicKey, const QString &amp;filePath);</p>
+<p>static QSslKey loadPrivateKey(const QString &amp;filePath);</p>
+<p>static bool savePrivateKey(const QSslKey &amp;privateKey, const QString &amp;filePath);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<blockquote>
+<p>**注意**：`loadPKCS12` 提取私钥时固定按 `QSsl::Rsa` 解析，对于 EC/SM2 密钥可能返回 null 的 QSslKey。非 RSA 密钥建议从单独的私钥文件加载。</p>
+<p>`loadPrivateKey` / `loadPublicKey` 自动尝试 RSA 和 EC 两种算法解析（先 RSA 后 EC）。</p>
+</blockquote>
+
+<h3>2.13 错误管理</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QString lastErrors() const;         // 获取错误信息（含 OpenSSL 原始错误栈）
+<p>void clearErrors();                 // 清空错误队列</p>
+<p>void appendError(const QString &amp;error);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>2.14 私有辅助方法</h3>
+
+<table>
+<tr><td>方法</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`parseSubjectDN(subjectDN)` → `X509_NAME*`</td><td>解析 "/CN=.../O=..." 格式 DN</td></tr>
+<tr><td>`addExtensions(ca, cert, req, exts)` → `bool`</td><td>为 X509/X509_REQ 添加扩展</td></tr>
+<tr><td>`getOpenSSLError()` → `QString`</td><td>获取 OpenSSL 错误栈</td></tr>
+<tr><td>`aesCipher(mode, key)` → `const EVP_CIPHER*`</td><td>密钥长度自动选择 AES-128/192/256</td></tr>
+<tr><td>`qcertToX509(cert)` → `X509*`</td><td>QSslCertificate → X509</td></tr>
+<tr><td>`qsslkeyToEVP(key)` → `EVP_PKEY*`</td><td>QSslKey → EVP_PKEY</td></tr>
+<tr><td>`callbackPassword(...)` → `int`</td><td>PEM 密码回调</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>3. CertificateManager</h2>
+
+<strong>文件</strong>：<code>modules/certificatemanager/certificatemanager.h/cpp</code>
+<strong>继承</strong>：<code>QDialog</code>
+
+<h3>3.1 枚举</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">enum CertType {
+<p>    CERT_EndEntity = 0,     // 终端证书 → SubCA 签发</p>
+<p>    CERT_SubordinateCA,     // 二级根证书 → RootCA 签发</p>
+<p>    CERT_RootCACustom,      // 一级根证书（自定义 DN）</p>
+<p>    CERT_RootCACetXiyuan,   // 一级根证书（CetXiyuan 预置 DN）</p>
+<p>};</p>
+<p>Q_ENUM(CertType)</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>3.2 构造</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">explicit CertificateManager(OpenSSLHelper *openSSLHelper, QWidget *parent = nullptr);</code></pre>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<ul>
+<li>自动加载已存在的 CA 证书</li>
+<li>不存在时 2 秒后自动生成 `CERT_RootCACetXiyuan`</li>
+<li>1 秒后发射 `issuerChanged` 信号</li>
+</ul>
+
+<h3>3.3 证书生成</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">bool genCertificate(int type, const QString &amp;outputDir);
+<p>// 统一入口，内部根据 USE_OPENSSL_TOOL_HANDLER 选择路径</p>
+
+<p>QSslCertificate genCertificateCode(int type, const QString &amp;outputDir,</p>
+<p>    const QString &amp;commonName, const QString &amp;subjectDN, QString &amp;extMessage);</p>
+<p>// API 代码路径（默认）</p>
+
+<p>QSslCertificate genCertificateOpenssl(int type, const QString &amp;outputDir,</p>
+<p>    const QString &amp;commonName, const QString &amp;subjectDN, QString &amp;extMessage);</p>
+<p>// 命令行路径</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>3.4 配置与文件保存</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">void setCommonName(const QString &amp;cn);        // 自动调整密钥参数
+<p>void setValidDays(int days);</p>
+<p>void setCertExts(const QString &amp;exts);</p>
+<p>bool saveToFile(const QByteArray &amp;data, const QString &amp;filePath);</p>
+<p>void saveCertificateFiles(keyPair, csrData, sslCert, outputDir, cn);</p>
+<p>void saveCertificateCAFiles(keyPair, caCert, outputDir, caName);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>3.5 信号与槽</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">Q_SIGNALS:
+<p>    void issuerChanged(int type);  // 签发者变更 → MainWindow 更新 UI</p>
+
+<p>private slots:</p>
+<p>    void on_keyTypeComboBox_currentTextChanged(const QString &amp;arg1);</p>
+<p>    // 密钥类型切换：RSA 显示位数字段 / EC 显示曲线字段 / SM2 锁定摘要为 SM3</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>3.6 常量</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">#define CAROOT_DEF_COMMONNAME   "CetXiyuan Root CA Signing Authority"
+<p>#define CAROOT_CUS_COMMONNAME   "CetXiyuan Custom Root CA Signing Authority"</p>
+<p>#define CASUB_DEF_COMMONNAME    "CetXiyuan Subordinate CA Signing Authority"</p>
+<p>#define USE_OPENSSL_TOOL_HANDLER (0)  // 0=API路径, 1=openssl.exe路径</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>4. MainWindow</h2>
+
+<strong>文件</strong>：<code>mainwindow/mainwindow.h/cpp</code>
+<strong>继承</strong>：<code>QMainWindow</code>
+
+<h3>4.1 数据获取</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray getData(bool isFile, const QString &amp;fileName, bool inBase64 = false);
+<p>// 统一数据入口：文件→QFile::readAll() | 文本→fromHex() | Base64→fromBase64()</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>4.2 插件加载</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QObject *loadPlugin(const QString &amp;dllName);
+<p>// 从 D:/Program Files (x86)/CetXiyuan/CetToolDLLs/plugins/ 或 ./plugins/ 加载</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>4.3 重要属性</h3>
+
+<table>
+<tr><td>属性</td><td>类型</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`m_openSSLHelper`</td><td>`OpenSSLHelper *const`</td><td>密码学核心</td></tr>
+<tr><td>`m_certManager`</td><td>`CertificateManager *const`</td><td>证书管理对话框</td></tr>
+<tr><td>`m_privateKey` / `m_publicKey`</td><td>`QSslKey`</td><td>非对称加解密密钥</td></tr>
+<tr><td>`m_cetLicenseInterface`</td><td>`CetLicenseInterface *`</td><td>许可插件（可选）</td></tr>
+<tr><td>`m_cetUpdateInterface`</td><td>`CetUpdateInterface *`</td><td>更新插件（可选）</td></tr>
+<tr><td>`m_settings`</td><td>`QSettings *const`</td><td>INI 配置（UTF-8）</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>5. 插件接口</h2>
+
+<h3>CetLicenseInterface</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">enum ActivateResult { ACTIVATE_CANCEL = 0, ACTIVATE_OK, ACTIVATE_ER };
+
+<p>virtual void initialize(const QString &amp;productId) = 0;</p>
+<p>virtual int activate() = 0;           // 静默激活</p>
+<p>virtual int activateWindow() = 0;     // 弹窗激活</p>
+<p>virtual QString resultString() = 0;   // 结果描述</p>
+<p>virtual QString solidKey() = 0;       // 设备固钥</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>CetUpdateInterface</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">typedef void (*callback_t)(void);
+
+<p>virtual void checkUpdate(const QString &amp;appName, const QString &amp;appVersion,</p>
+<p>    callback_t callback = nullptr) = 0;  // 回调如 QCoreApplication::quit</p>
+<p>virtual bool inUpdating(QString &amp;newVersion) = 0;</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>CetLogManagerInterface</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">virtual void show() = 0;  // 显示日志控制窗口</code></pre>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>6. 证书扩展字段格式</h2>
+
+<p>每行一条，支持的关键扩展：</p>
+
+<div class="code-block-wrapper"><pre><code>basicConstraints=critical,CA:TRUE,pathlen:1
+<p>keyUsage=critical,keyCertSign,cRLSign</p>
+<p>subjectKeyIdentifier=hash</p>
+<p>authorityKeyIdentifier=keyid:always,issuer:always</p>
+<p>extendedKeyUsage=serverAuth,clientAuth</p>
+<p>subjectAltName=DNS:example.com,IP:192.168.1.100</p>
+<p>crlDistributionPoints=URI:http://example.com/crl</p>
+<p>certificatePolicies=1.2.3.4</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<blockquote>
+<p>**提示**：以 `#` 开头的行被视为注释，将被 `addExtensions()` 自动跳过。</p>
+</blockquote>
+
+<hr>
+
+<h2>7. 预定义目录</h2>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">#define DIR_CERTS        QCoreApplication::applicationDirPath() + "/dir-certs"
+<p>#define DIR_ASYMMETRICS  QCoreApplication::applicationDirPath() + "/dir-asymmetrics"</p>
+<p>#define DIR_SYMMETRICS   QCoreApplication::applicationDirPath() + "/dir-symmetrics"</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>8. 使用示例</h2>
+
+<h3>8.1 RSA 密钥对 + 签名验签</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">OpenSSLHelper helper;
+<p>auto kp = helper.genKeyPair("RSA", "2048-bit");</p>
+<p>QByteArray sig = helper.signData("data", kp.second, "sha256");</p>
+<p>bool ok = helper.signVerify("data", sig, kp.first, "sha256");</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>8.2 AES-256-GCM 加解密</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray key = OpenSSLHelper::aesGenerateKey(32);
+<p>QByteArray iv  = OpenSSLHelper::aesGenerateIV(OpenSSLHelper::SYM_GCM);</p>
+<p>QByteArray cipher = OpenSSLHelper::aesEncrypt("plaintext", key, OpenSSLHelper::SYM_GCM, iv);</p>
+<p>QByteArray plain  = OpenSSLHelper::aesDecrypt(cipher, key, OpenSSLHelper::SYM_GCM);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>8.3 SM2 签名</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">auto kp = helper.genKeyPair("SM2");
+<p>QByteArray sig = helper.signData("data", kp.second, "sm3", "", "1234567812345678");</p>
+<p>bool ok = helper.signVerify("data", sig, kp.first, "sm3", "1234567812345678");</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>8.4 SM4-CBC 加解密</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray key  = QByteArray::fromHex("0123456789ABCDEF0123456789ABCDEF");
+<p>QByteArray iv   = QByteArray::fromHex("00000000000000000000000000000000");</p>
+<p>QByteArray data = "Hello, SM4!";</p>
+
+<p>QByteArray cipher = helper.sm4Encrypt(data, key, OpenSSLHelper::SYM_CBC, iv);</p>
+<p>QByteArray plain  = helper.sm4Decrypt(cipher, key, OpenSSLHelper::SYM_CBC, iv);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>8.5 三级 PKI 证书生成</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">OpenSSLHelper helper;
+
+<p>// 1. 一级根证书</p>
+<p>auto rootKP = helper.genKeyPair("RSA", "2048-bit");</p>
+<p>auto rootCert = helper.genSelfCert(3650, "/C=CN/O=CetXiyuan/CN=Root CA",</p>
+<p>    rootKP.second, {"basicConstraints=critical,CA:TRUE,pathlen:1"}, "sha256");</p>
+
+<p>// 2. 二级根证书</p>
+<p>auto subKP = helper.genKeyPair("RSA", "2048-bit");</p>
+<p>QString subCsr = helper.genCSR("/C=CN/O=CetXiyuan/CN=Sub CA", subKP.second,</p>
+<p>    {"basicConstraints=critical,CA:TRUE,pathlen:0"});</p>
+<p>auto subCert = helper.signCSR(1825, subCsr, rootCert, rootKP.second,</p>
+<p>    {"basicConstraints=critical,CA:TRUE,pathlen:0"}, "sha256");</p>
+
+<p>// 3. 终端证书</p>
+<p>auto endKP = helper.genKeyPair("RSA", "2048-bit");</p>
+<p>QStringList endExts = {"basicConstraints=CA:FALSE",</p>
+<p>    "keyUsage=digitalSignature,keyEncipherment",</p>
+<p>    "extendedKeyUsage=serverAuth,clientAuth",</p>
+<p>    "subjectAltName=DNS:example.com,IP:127.0.0.1"};</p>
+<p>QString endCsr = helper.genCSR("/C=CN/O=CetXiyuan/CN=example.com", endKP.second, endExts);</p>
+<p>auto endCert = helper.signCSR(365, endCsr, subCert, subKP.second, endExts, "sha256");</p>
+
+<p>// 4. 打包 PFX</p>
+<p>QByteArray pfx = helper.toPfx(endCert, endKP.second,</p>
+<p>    helper.genChain(subCert, rootCert), "password");</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>8.6 SM2 证书签发</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QPair&lt;QSslKey, QSslKey&gt; keyPair = helper.genKeyPair("SM2");
+<p>QSslCertificate rootCert = helper.genSelfCert(</p>
+<p>    3650, "/C=CN/O=CetXiyuan/CN=SM2 Root CA",</p>
+<p>    keyPair.second,</p>
+<p>    {"basicConstraints=critical,CA:TRUE,pathlen:1"},</p>
+<p>    "sm3"   // 使用 SM3 签名</p>
+<p>);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>9. 国密算法详细说明</h2>
+
+<h3>9.1 概述</h3>
+
+<p>国密算法是中国国家密码管理局（OSCCA）制定的密码标准，CetCryptoToolkit 通过 OpenSSL 3.x 提供完整支持：</p>
+
+<table>
+<tr><td>算法</td><td>类型</td><td>对应国际算法</td><td>密钥长度</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>**SM2**</td><td>非对称加密/签名</td><td>ECC（椭圆曲线）</td><td>256-bit</td><td>基于 SM2 椭圆曲线</td></tr>
+<tr><td>**SM3**</td><td>摘要（哈希）</td><td>SHA-256</td><td>—</td><td>输出 256-bit 摘要</td></tr>
+<tr><td>**SM4**</td><td>对称加密</td><td>AES-128</td><td>128-bit</td><td>分组密码</td></tr>
+</tbody></table>
+
+<h3>9.2 SM2 签名特殊性</h3>
+
+<p>SM2 签名与 RSA/EC 的关键区别：<strong>必须传入 <code>userId</code></strong>（用于计算 ZA 值）。</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray data   = "待签名数据";
+<p>QByteArray userId = "1234567812345678";  // GB/T 35276 标准默认值</p>
+
+<p>QByteArray signature = helper.signData(data, privateKey, "sm3", "", userId);</p>
+<p>bool ok = helper.signVerify(data, signature, publicKey, "sm3", userId);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<blockquote>
+<p>⚠️ 与第三方系统对接时，双方必须使用相同的 `userId`，否则验签必然失败。</p>
+</blockquote>
+
+<h3>9.3 SM2 签名格式转换</h3>
+
+<p>SM2 签名输出为 DER 格式（首字节 <code>0x30</code>）。若收到裸格式（r||s，64字节）：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray rawSign = ...; // 64字节（r 32字节 + s 32字节）
+<p>if (rawSign.at(0) != 0x30) {</p>
+<p>    rawSign = helper.sm2SignToDer(rawSign);  // 转为 DER</p>
+<p>}</p>
+<p>bool ok = helper.signVerify(data, rawSign, publicKey, "sm3", userId);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>9.4 SM2 公钥格式转换</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray rawPubKey = ...;         // 65字节（04 + X + Y）
+<p>QByteArray derPubKey = helper.sm2PubKeyToDer(rawPubKey);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>9.5 SM4 各模式说明</h3>
+
+<blockquote>
+<p>⚠️ **SM4 当前仅支持 ECB 和 CBC 两种模式**（OpenSSL 3.x 的 SM4 实现尚不支持 GCM/CTR）。</p>
+</blockquote>
+
+<table>
+<tr><td>模式</td><td>IV 长度</td><td>密文格式</td><td>特点</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>ECB</td><td>不需要</td><td>仅密文</td><td>最简单，不推荐用于敏感数据</td></tr>
+<tr><td>CBC</td><td>16字节</td><td>仅密文（IV 单独管理）</td><td>常用，需要 padding</td></tr>
+</tbody></table>
+
+<blockquote>
+<p>⚠️ **SM4 与 AES 的关键差异**：</p>
+<p>1. AES 解密时 IV 从密文前缀自动解析；SM4 密文不含 IV，解密时**必须**手动传入 IV</p>
+<p>2. SM4 不支持 GCM/CTR 模式，选择 GCM/CTR 将导致加密失败（返回空）</p>
+</blockquote>
+
+<h3>9.6 SM4-CBC 示例</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray key  = QByteArray::fromHex("0123456789ABCDEF0123456789ABCDEF");
+<p>QByteArray iv   = QByteArray::fromHex("00000000000000000000000000000000"); // CBC 用 16字节</p>
+<p>QByteArray data = "Hello, SM4!";</p>
+
+<p>// CBC 加密（返回纯密文，不含 IV）</p>
+<p>QByteArray cipher = helper.sm4Encrypt(data, key, OpenSSLHelper::SYM_CBC, iv);</p>
+
+<p>// CBC 解密（必须传入加密时使用的同一个 IV）</p>
+<p>QByteArray plain  = helper.sm4Decrypt(cipher, key, OpenSSLHelper::SYM_CBC, iv);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>9.7 SM3 摘要</h3>
+
+<p>与其他摘要接口完全一致：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray hash = helper.digest(data, "SM3");
+<p>// 输出：32字节（256-bit），与 SHA-256 等长但算法不同</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>9.8 与第三方系统对接注意事项</h3>
+
+<ol>
+<li>**SM2 userId 必须协商一致**：建议约定为 `"1234567812345678"`（GB/T 35276 标准默认值）</li>
+<li>**SM2 签名格式确认**：部分系统使用裸格式（64字节 r||s），需调用 `sm2SignToDer()` 转换</li>
+<li>**SM4 IV 传递方式**：本工具在密文中内嵌 IV 前缀，若对方 IV 单独传递需手动拆分</li>
+<li>**SM3 摘要长度**：32字节，与 SHA-256 相同但算法不同，不可混用</li>
+<li>**SM2 证书链验证**：需对方系统支持 SM2 的 X.509 证书</li>
+<li>**OpenSSL 版本要求**：需 1.1.1+ 版本才支持国密，推荐 3.0+</li>
+</ol>
+</div>
+<div class="footer"><p>📄 文档转换 · 笔名 CetXiyuan</p></div>
+<script>
+hljs.highlightAll();
+
+function copyFullText() {{
+    var content = document.getElementById("doc-content");
+    var text = content.innerText || content.textContent;
+    navigator.clipboard.writeText(text).then(function() {{
+        showToast("✅ 已复制全文");
+    }});
+}}
+
+function copyCodeBlock(btn) {{
+    var code = btn.parentElement.querySelector("code").textContent;
+    navigator.clipboard.writeText(code).then(function() {{
+        showToast("✅ 已复制代码");
+    }});
+}}
+
+function showToast(msg) {{
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(function() {{
+        t.classList.remove("show");
+    }}, 2000);
+}}
+</script>
+</body>
+</html>

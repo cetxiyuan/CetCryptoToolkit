@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CetCryptoToolkit 维护者指南</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #fafafa; color: #1e2a3e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.7; }
+#doc-content { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
+h1 { font-size: 2em; margin: 0.8em 0 0.4em; padding-bottom: 0.3em; border-bottom: 2px solid #e2e8f0; color: #1a202c; }
+h2 { font-size: 1.5em; margin: 1.2em 0 0.5em; padding-bottom: 0.2em; border-bottom: 1px solid #e2e8f0; color: #2d3748; }
+h3 { font-size: 1.2em; margin: 1em 0 0.4em; color: #4a5568; }
+h4 { font-size: 1.05em; margin: 0.8em 0 0.3em; color: #4a5568; }
+p { margin: 0.6em 0; }
+a { color: #3182ce; text-decoration: none; }
+a:hover { text-decoration: underline; }
+pre { background: #1e1e1e; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 1em 0; }
+pre code { color: #abb2bf; font-family: "Cascadia Code", "Fira Code", Consolas, monospace; font-size: 0.9em; line-height: 1.5; }
+#doc-content code:not(pre code) { background: #f0f4f8 !important; color: #c7254e !important; padding: 2px 6px; border-radius: 3px; font-family: Consolas, monospace; font-size: 0.9em; }
+table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+th, td { border: 1px solid #e2e8f0; padding: 10px 14px; text-align: left; }
+th { background: #f6f8fa; font-weight: 600; color: #2d3748; }
+tr:nth-child(even) { background: #fafbfc; }
+blockquote { border-left: 4px solid #3182ce; padding: 0.5em 1em; margin: 1em 0; background: #f0f7ff; color: #4a5568; }
+ul, ol { padding-left: 2em; margin: 0.6em 0; }
+li { margin: 0.3em 0; }
+hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
+.copy-btn { position: fixed; top: 16px; right: 24px; padding: 8px 20px; background: #3182ce; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 1000; }
+.copy-btn:hover { background: #2b6cb0; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #2d3748; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.code-block-wrapper { position: relative; }
+.code-copy-btn { position: absolute; top: 8px; right: 8px; padding: 4px 10px; background: rgba(255,255,255,0.12); color: #abb2bf; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; cursor: pointer; font-size: 12px; }
+.code-copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+.footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; color: #a0aec0; font-size: 0.9em; text-align: center; }
+@media (max-width: 768px) { #doc-content { padding: 20px 12px; } pre { padding: 12px; font-size: 0.8em; } }
+</style>
+</head>
+<body>
+<button class="copy-btn" onclick="copyFullText()">📋 Copy</button>
+<div id="toast" class="toast"></div>
+<div id="doc-content">
+<h1>CetCryptoToolkit 维护者指南</h1>
+
+<blockquote>
+<p>适用版本：CetCryptoToolkit v2.4.0</p>
+<p>作者：CetXiyuan（璟·汐源忆醉）</p>
+</blockquote>
+
+<hr>
+
+<h2>1. 代码风格规范</h2>
+
+<h3>1.1 命名规则</h3>
+
+<table>
+<tr><td>元素</td><td>规范</td><td>示例</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>类名</td><td>PascalCase</td><td>`OpenSSLHelper`, `CertificateManager`, `MainWindow`</td></tr>
+<tr><td>成员变量</td><td>`m_` 前缀 + camelCase</td><td>`m_openSSLHelper`, `m_certManager`</td></tr>
+<tr><td>局部变量</td><td>camelCase</td><td>`keyPair`, `outputDir`, `sslCert`</td></tr>
+<tr><td>方法名</td><td>camelCase，动词开头</td><td>`genKeyPair()`, `loadCA()`, `saveToFile()`</td></tr>
+<tr><td>Qt 槽函数</td><td>`on_<widget>_<signal>`</td><td>`on_genCertPushButton_clicked()`</td></tr>
+<tr><td>宏常量</td><td>UPPER_SNAKE_CASE</td><td>`CAROOT_DEF_DIR`, `USE_OPENSSL_TOOL_HANDLER`</td></tr>
+<tr><td>枚举值</td><td>UPPER_SNAKE_CASE</td><td>`CERT_EndEntity`, `SYM_GCM`</td></tr>
+<tr><td>头文件保护</td><td>`#ifndef FILENAME_H`</td><td>`#ifndef OPENSSLHELPER_H`</td></tr>
+</tbody></table>
+
+<h3>1.2 缩进与格式</h3>
+
+<ul>
+<li>**缩进**：4 个空格（不使用 Tab）</li>
+<li>**大括号**：K&R 风格（左大括号在行尾）</li>
+</ul>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">if (certificate.isNull()) {
+<p>    qCritical() &lt;&lt; "sslCert.isNull():" &lt;&lt; m_openSSLHelper-&gt;lastErrors();</p>
+<p>    return QSslCertificate();</p>
+<p>}</p>
+
+<p>// switch 使用大括号包裹需要声明局部变量的 case 块</p>
+<p>switch (type) {</p>
+<p>case CERT_EndEntity: {</p>
+<p>    QString fileName = commonName;</p>
+<p>    // ...</p>
+<p>    break;</p>
+<p>}</p>
+<p>default: break;</p>
+<p>}</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>1.3 注释风格</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">/**
+<ul>
+<li>生成密钥对</li>
+<li>@param algorithm 算法名称："RSA" / "EC" / "SM2"</li>
+<li>@param keySize RSA用"2048-bit"，EC用"prime256v1"</li>
+<li>@param passphrase 私钥加密密码，空=不加密</li>
+<li>@return QPair&lt;公钥, 私钥&gt;，失败时均为 null</li>
+</ol>
+<p> */</p>
+<p>QPair&lt;QSslKey, QSslKey&gt; genKeyPair(const QString &amp;algorithm, ...);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>1.4 资源管理</h3>
+
+<p>使用 <code>goto cleanup</code> 模式确保所有资源正确释放：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">bool success = false;
+<p>EVP_PKEY_CTX *ctx = nullptr;</p>
+<p>EVP_PKEY *pkey = nullptr;</p>
+<p>// ... 所有变量声明在函数开头</p>
+
+<p>success = true;</p>
+
+<p>cleanup:</p>
+<p>    if (ctx) EVP_PKEY_CTX_free(ctx);</p>
+<p>    if (pkey) EVP_PKEY_free(pkey);</p>
+<p>    return result;</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>1.5 对象所有权注意事项</h3>
+
+<strong>OpenSSLHelper 的所有权转移</strong>：<code>MainWindow</code> 创建 <code>OpenSSLHelper</code>，并将其指针传给 <code>CertificateManager</code>。<code>CertificateManager::~CertificateManager()</code> 会执行 <code>delete m_openSSLHelper</code>，即 <strong>CertificateManager 接管了 OpenSSLHelper 的所有权</strong>。MainWindow 在析构时不应再次 delete，Qt 父子关系（CertificateManager 的 parent 是 MainWindow）会确保正确的析构顺序。
+
+<strong>插件接口对象</strong>：<code>CetLicenseInterface</code>、<code>CetUpdateInterface</code>、<code>CetProgressInterface</code> 由 <code>loadPlugin()</code> 返回，并通过 <code>plugin->setParent(this)</code> 挂到 MainWindow 上，由 Qt 父子关系自动管理生命周期。析构时显式 delete 是为了确保在 UI 析构前释放。
+
+<h3>1.6 错误处理</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">#define SSL_APPEND_ERROR(msg) { \
+<p>    char openssl_err[1024]; \</p>
+<p>    ERR_error_string_n(ERR_get_error(), openssl_err, sizeof(openssl_err)); \</p>
+<p>    appendError(tr("%1 (OpenSSL: %2)").arg(msg).arg(openssl_err)); \</p>
+<p>}</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>2. 版本控制工作流</h2>
+
+<h3>2.1 分支策略</h3>
+
+<table>
+<tr><td>分支</td><td>用途</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`master`</td><td>当前开发分支，日常开发提交</td></tr>
+<tr><td>`main`</td><td>稳定发布分支，PR 目标分支</td></tr>
+</tbody></table>
+
+<h3>2.2 Commit 消息格式</h3>
+
+<div class="code-block-wrapper"><pre><code>&lt;类型&gt;: &lt;简短描述&gt;
+
+<p>类型：Fixed（修复Bug）/ Updated（功能更新）/ 发布正式版（新版本）</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<p>示例：</p>
+
+<div class="code-block-wrapper"><pre><code>Fixed: 上电首次自动激活改成 30 秒
+<p>Updated: 许可2.0对应的插件包</p>
+<p>发布正式版 V2.4.0</p>
+<p>Fixed: 修复升级功能容易失败(延长10秒/去掉HTTP请求超时设置)</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>3. 发布流程</h2>
+
+<h3>3.1 修改版本号</h3>
+
+<p>编辑 <code>version.h</code>：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">#define VER_MAJOR               2       /* 主版本号 */
+<p>#define VER_MINOR               4       /<em> 次版本号 </em>/</p>
+<p>#define VER_MICRO               0       /<em> 小版本号 </em>/</p>
+<p>#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK240.G631)"</p>
+<p>// CXYQK5152 = CetXiyuan QT Kernel 5.15.2</p>
+<p>// CCTK240 = CetCryptoToolkit v2.4.0</p>
+<p>// G631 = G(2026年-20) 6(6月) 31(25日=31-6)</p>
+
+<p>#define PATCH_PACKET            "5251"  // 开发版使用：月+日+序号</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<p>确保 <code>IS_RELEASE_VERSION</code> 为 <code>1</code>（正式版）。</p>
+
+<h3>3.2 编译与打包</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-bash"># 编译 Release 版本
+<p>qmake CetCryptoToolkit.pro CONFIG+=release</p>
+<p>mingw32-make clean</p>
+<p>mingw32-make -j4</p>
+
+<h1>打包</h1>
+<p>mkdir Output</p>
+<p>cp release/CetCryptoToolkit.exe Output/</p>
+<p>cp libs/libcrypto-3.dll Output/</p>
+<p>cp libs/libssl-3.dll Output/</p>
+<p>cd Output</p>
+<p>windeployqt CetCryptoToolkit.exe</p>
+<p>mkdir plugins</p>
+<p>cp ../plugins/*.dll plugins/</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>3.3 打标签</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-bash">git tag -a v2.4.0 -m "发布正式版 V2.4.0"
+<p>git push origin master</p>
+<p>git push origin v2.4.0</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>4. 测试方法</h2>
+
+<h3>4.1 功能测试清单</h3>
+
+<h4>证书管理</h4>
+
+<table>
+<tr><td>测试项</td><td>操作</td><td>验证点</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>一级根证书(CetXiyuan)</td><td>选择→生成证书</td><td>`rootCA-CetXiyuan.crt.pem` 生成</td></tr>
+<tr><td>一级根证书(Custom)</td><td>选择→修改DN→生成</td><td>`rootCA-Custom.crt.pem` 生成</td></tr>
+<tr><td>二级根证书</td><td>选择→生成</td><td>`subCA-Generic.crt.pem` 生成</td></tr>
+<tr><td>终端证书</td><td>选择→设置CN→生成</td><td>终端证书+链+PFX 全部生成</td></tr>
+<tr><td>证书配置对话框</td><td>点击配置按钮</td><td>CertificateManager 弹出</td></tr>
+</tbody></table>
+
+<h4>非对称加密</h4>
+
+<table>
+<tr><td>测试项</td><td>验证点</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>RSA 加密→解密</td><td>解密结果 = 原始数据</td></tr>
+<tr><td>EC 加密→解密</td><td>解密结果 = 原始数据</td></tr>
+<tr><td>文件模式</td><td>文件读写正常</td></tr>
+</tbody></table>
+
+<h4>摘要与签名</h4>
+
+<table>
+<tr><td>测试项</td><td>验证点</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>SHA256 摘要</td><td>对比 `openssl dgst` 命令</td></tr>
+<tr><td>SM3 摘要</td><td>摘要值正确（SM3 不涉及 userId）</td></tr>
+<tr><td>RSA 签名→验签</td><td>验签成功</td></tr>
+<tr><td>SM2 签名→验签</td><td>验签成功（需填入 userId，摘要算法选 SM3 时 userId 输入框自动显示）</td></tr>
+</tbody></table>
+
+<h4>对称加密</h4>
+
+<table>
+<tr><td>测试项</td><td>验证点</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>AES-CBC 加解密</td><td>解密正确</td></tr>
+<tr><td>AES-GCM 加解密</td><td>GCM 认证加密正常</td></tr>
+<tr><td>SM4-CBC 加解密</td><td>SM4 仅支持 ECB/CBC，解密正常</td></tr>
+<tr><td>AES-128-CMAC</td><td>CMAC 值正确</td></tr>
+<tr><td>ECB 模式</td><td>IV 输入框隐藏</td></tr>
+</tbody></table>
+
+<h3>4.2 OpenSSL 命令行交叉验证</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-bash"># 临时切换到命令行路径
+<p>#define USE_OPENSSL_TOOL_HANDLER     (1)  // 在 certificatemanager.h 中</p>
+
+<h1>对比两种路径的生成结果</code></pre></h1>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>4.3 自动化测试</h3>
+
+<p>当前项目<strong>不包含自动化单元测试</strong>。建议后续添加：</p>
+<ul>
+<li>**Qt Test**（`QTestLib`）：信号/槽、GUI 组件</li>
+<li>**Google Test**：OpenSSLHelper 纯计算逻辑</li>
+</ul>
+
+<p>建议优先测试的核心方法：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">void testGenKeyPair() {
+<p>    OpenSSLHelper helper;</p>
+<p>    auto keyPair = helper.genKeyPair("RSA", "2048-bit", "");</p>
+<p>    QVERIFY(!keyPair.first.isNull());</p>
+<p>    QVERIFY(!keyPair.second.isNull());</p>
+<p>}</p>
+
+<p>void testDigest() {</p>
+<p>    OpenSSLHelper helper;</p>
+<p>    QByteArray hash = helper.digest(QByteArray::fromHex("616263"), "SHA256"); // "abc"</p>
+<p>    QCOMPARE(hash.toHex(),</p>
+<p>        QByteArray("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"));</p>
+<p>}</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>5. 调试技巧</h2>
+
+<h3>5.1 qDebug() 日志</h3>
+
+<p>项目已开启 <code>QT_MESSAGELOGCONTEXT</code>，日志自动包含文件名和行号：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">qDebug() &lt;&lt; "key" &lt;&lt; key.toHex() &lt;&lt; "data" &lt;&lt; data.toHex();
+<p>qWarning() &lt;&lt; "[license:activate] next time(ms):" &lt;&lt; auto_timing_msec;</p>
+<p>qCritical() &lt;&lt; "sslCert.isNull():" &lt;&lt; m_openSSLHelper-&gt;lastErrors();</p>
+<p>qInfo() &lt;&lt; "SM2 is in default provider";</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>5.2 OpenSSL 错误输出</h3>
+
+<code>SSL_APPEND_ERROR</code> 宏自动捕获 OpenSSL 错误栈。通过 <code>m_openSSLHelper->lastErrors()</code> 获取。
+
+<h3>5.3 推荐工具</h3>
+
+<table>
+<tr><td>工具</td><td>用途</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>**Dependency Walker**</td><td>检查 DLL 依赖</td></tr>
+<tr><td>**Process Monitor**</td><td>监控文件/注册表访问</td></tr>
+<tr><td>**OpenSSL 命令行**</td><td>交叉验证密码学结果</td></tr>
+<tr><td>**Qt Creator**</td><td>IDE 和调试器</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>6. 证书管理操作指南</h2>
+
+<h3>6.1 PKI 证书体系</h3>
+
+<p>PKI（公钥基础设施）支持<strong>三级证书体系</strong>：</p>
+
+<div class="code-block-wrapper"><pre><code>一级根证书（RootCA）    → pathlen:1，自签
+<p>  └── 二级根证书（SubCA） → pathlen:0，RootCA 签发</p>
+<p>        └── 终端证书（EndEntity） → SubCA 签发，含 SAN</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>6.2 快速生成完整证书</h3>
+
+<strong>第一步：生成一级根证书</strong>
+
+<ol>
+<li>「证书类型」选择 **一级根证书(CetXiyuan)** 或 **一级根证书(Custom)**</li>
+<li>点击「配置」→ 设置密钥类型（RSA-2048 推荐或 SM2）、有效期（建议 3650 天）</li>
+<li>点击「生成证书」</li>
+</ol>
+
+<strong>第二步：生成二级根证书</strong>
+
+<ol>
+<li>「证书类型」选择 **二级根证书**</li>
+<li>确认「签发者」显示为一级根证书</li>
+<li>有效期建议 1825 天（5年）</li>
+<li>点击「生成证书」</li>
+</ol>
+
+<strong>第三步：生成终端证书</strong>
+
+<ol>
+<li>「证书类型」选择 **终端证书**</li>
+<li>「配置」中重点设置：CommonName（域名）、SAN（DNS/IP）、有效期（建议 365 天）</li>
+<li>确认「签发者」显示为二级根证书</li>
+<li>点击「生成证书」</li>
+</ol>
+
+<h3>6.3 输出文件说明</h3>
+
+<table>
+<tr><td>文件名</td><td>格式</td><td>用途</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`<name>.key.pem`</td><td>PEM</td><td>私钥，**妥善保管，不可泄露**</td></tr>
+<tr><td>`<name>.pub.pem`</td><td>PEM</td><td>公钥</td></tr>
+<tr><td>`<name>.csr.pem`</td><td>PEM</td><td>证书签名请求</td></tr>
+<tr><td>`<name>.crt.pem`</td><td>PEM</td><td>证书（可用记事本打开）</td></tr>
+<tr><td>`<name>.crt.der`</td><td>DER</td><td>证书（二进制）</td></tr>
+<tr><td>`ca-chain-<name>.pem`</td><td>PEM</td><td>证书链</td></tr>
+<tr><td>`ca-chain-<name>.p7b`</td><td>PKCS#7</td><td>证书链（Windows 可双击导入）</td></tr>
+<tr><td>`full-bundle-<name>.pfx`</td><td>PKCS#12</td><td>证书+私钥+证书链（密码 `pfxpassword`）</td></tr>
+</tbody></table>
+
+<h3>6.4 PFX 和 P7B 的使用场景</h3>
+
+<strong>PFX（PKCS#12）</strong>：包含证书+私钥+完整证书链。用于导入 Windows 证书存储、IIS、Nginx（需先转换）、Java KeyStore。Windows 下双击 <code>.pfx</code> 按向导操作。
+
+<strong>P7B（PKCS#7）</strong>：仅含证书链（不含私钥）。用于部署证书链让客户端验证信任链。Windows 下双击 <code>.p7b</code> 可导入证书存储。
+
+<h3>6.5 配置对话框参数</h3>
+
+<table>
+<tr><td>参数</td><td>说明</td><td>示例</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>密钥类型</td><td>非对称算法</td><td>RSA-2048、EC prime256v1、SM2</td></tr>
+<tr><td>有效期（天）</td><td>证书有效天数</td><td>365、1825、3650</td></tr>
+<tr><td>CommonName (CN)</td><td>证书主体名称</td><td>`example.com`、`My Root CA`</td></tr>
+<tr><td>证书扩展字段</td><td>X.509 v3 扩展</td><td>见下方</td></tr>
+</tbody></table>
+
+<strong>SAN 配置示例</strong>：
+
+<div class="code-block-wrapper"><pre><code># 单域名
+<p>subjectAltName=DNS:example.com</p>
+
+<h1>多域名 + IP</h1>
+<p>subjectAltName=DNS:example.com,DNS:www.example.com,IP:192.168.1.100</p>
+
+<h1>通配符域名</h1>
+<p>subjectAltName=DNS:*.example.com</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>6.6 证书验证</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-bash"># 验证证书链
+<p>openssl verify -CAfile ca-chain-&lt;name&gt;.pem &lt;name&gt;.crt.pem</p>
+
+<h1>查看证书详情</h1>
+<p>openssl x509 -in &lt;name&gt;.crt.pem -text -noout</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>7. 常见修改场景</h2>
+
+<h3>7.1 增加新的密钥算法</h3>
+
+<p>在 <code>opensslhelper.cpp</code> 的 <code>supportedKeyAlgorithms</code> 添加条目：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">static QList&lt;QPair&lt;QString, int&gt;&gt; supportedKeyAlgorithms = {
+<p>    {"RSA",     EVP_PKEY_RSA},</p>
+<p>    {"EC",      EVP_PKEY_EC},</p>
+<p>    {"SM2",     EVP_PKEY_SM2},</p>
+<p>    {"Ed25519", EVP_PKEY_ED25519},  // 新增</p>
+<p>};</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<p>然后在 <code>genKeyPair()</code> 添加对应分支。</p>
+
+<h3>7.2 增加新的对称加密模式</h3>
+
+<ol>
+<li>`SymMode` 枚举添加新值（如 `SYM_CFB`）</li>
+<li>`supportedSymModes` 列表添加条目</li>
+<li>`aesCipher()` 添加对应 `EVP_aes_*_cfb()` 分支</li>
+<li>`on_seaEncryptModeComboBox_currentTextChanged()` 添加 IV 处理</li>
+</ol>
+
+<h3>7.3 修改证书默认有效期</h3>
+
+<p>编辑 <code>mainwindow.cpp</code>：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">void MainWindow::on_certTypeComboBox_currentTextChanged(const QString &amp;arg1)
+<p>{</p>
+<p>    // ...</p>
+<p>    } else if (arg1.contains(TEXT_RootCACustom)) {</p>
+<p>        m_certManager-&gt;setValidDays(365 * 10);  // 改为 10 年</p>
+<p>    }</p>
+<p>}</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>7.4 修改许可证激活间隔上限</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QTimer::singleShot(auto_timing_msec, this, [=]() {
+<p>    auto_timing_active = true;</p>
+<p>    auto_timing_msec = auto_timing_msec * 2;</p>
+<p>    // 添加上限</p>
+<p>    if (auto_timing_msec &gt; 2 <em> 60 </em> 60 * 1000)</p>
+<p>        auto_timing_msec = 2 <em> 60 </em> 60 * 1000;</p>
+<p>    // ...</p>
+<p>});</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>7.5 在 API 和命令行路径间切换</h3>
+
+<p>编辑 <code>certificatemanager.h</code>：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">#define USE_OPENSSL_TOOL_HANDLER     (0)  // 0=API路径, 1=命令行路径</code></pre>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>7.6 添加 CRL 分发点字段</h3>
+
+<p>在 <code>certificatemanager.ui</code> 添加 <code>crlLineEdit</code>，然后在终端证书分支：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QString crlUrl = ui-&gt;crlLineEdit-&gt;text();
+<p>if (!crlUrl.isEmpty())</p>
+<p>    extensions.append(QString("crlDistributionPoints=URI:%1").arg(crlUrl));</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>7.7 修改 AES IV 生成逻辑</h3>
+
+<p>编辑 <code>aesGenerateIV()</code>：将 GCM 模式的 IV 从 12 字节改为 16 字节，同步修改 <code>on_seaEncryptModeComboBox_currentTextChanged()</code> 中的默认 IV 值。</p>
+
+<hr>
+
+<h2>8. 目录说明</h2>
+
+<table>
+<tr><td>目录</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`dir-certs/`</td><td>证书输出目录（运行时自动创建）</td></tr>
+<tr><td>`dir-asymmetrics/`</td><td>非对称加密数据目录</td></tr>
+<tr><td>`dir-symmetrics/`</td><td>对称加密数据目录</td></tr>
+<tr><td>`Configs/`</td><td>配置文件目录（AppMaster.ini）</td></tr>
+<tr><td>`Record/`</td><td>日志记录目录</td></tr>
+<tr><td>`plugins/`</td><td>Qt 插件 DLL 备用搜索路径</td></tr>
+</tbody></table>
+</div>
+<div class="footer"><p>📄 文档转换 · 笔名 CetXiyuan</p></div>
+<script>
+hljs.highlightAll();
+
+function copyFullText() {{
+    var content = document.getElementById("doc-content");
+    var text = content.innerText || content.textContent;
+    navigator.clipboard.writeText(text).then(function() {{
+        showToast("✅ 已复制全文");
+    }});
+}}
+
+function copyCodeBlock(btn) {{
+    var code = btn.parentElement.querySelector("code").textContent;
+    navigator.clipboard.writeText(code).then(function() {{
+        showToast("✅ 已复制代码");
+    }});
+}}
+
+function showToast(msg) {{
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(function() {{
+        t.classList.remove("show");
+    }}, 2000);
+}}
+</script>
+</body>
+</html>
