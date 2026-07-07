@@ -169,14 +169,25 @@ void MainWindow::initFeaturesPlugin()
             m_cetLogManagerInterface->show();
         });
 
+    static QTimer *activateTimer = new QTimer(this);
+    static bool auto_timing_active = true;
+    static int auto_timing_msec = 10 * 60 * 1000; // 10 分钟
+    connect(activateTimer, &QTimer::timeout, this, [=]() {
+        auto_timing_active = true;
+        auto_timing_msec = auto_timing_msec * 2;
+        if (auto_timing_msec > 24 * 60 * 60 * 1000)
+            auto_timing_msec = 30 * 60 * 1000; // 超过 24 小时重置
+        qWarning() << "[license:activate] The next activation time(s):" 
+                   << auto_timing_msec / 1000;
+        emit ui->licenseMenu->actions().first()->triggered(true);
+    });
+
     LOAD_INTERFACE(m_cetLicenseInterface, "CetLicensePlugin.dll", true);
     if (m_cetLicenseInterface)
         m_cetLicenseInterface->initialize(PRODUCT_NAME);
     QAction *activeAction = ui->licenseMenu->addAction(tr("激活"), this, [=]() {
         int result = 0;
         bool activated = false;
-        static bool auto_timing_active = true;
-        static int auto_timing_msec = 30 * 60 * 1000; // 30 分钟
         if (m_cetLicenseInterface) {
             result = (auto_timing_active ? m_cetLicenseInterface->activate()
                                          : m_cetLicenseInterface->activateWindow());
@@ -202,16 +213,11 @@ void MainWindow::initFeaturesPlugin()
         }
     timing_active:
         auto_timing_active = false;
-        /* 第一次(30)分钟激活 第二次(30*2=60)分钟 依次类推 */
-        QTimer::singleShot(auto_timing_msec, this, [=]() {
-            auto_timing_active = true;
-            auto_timing_msec = auto_timing_msec * 2;
-            qWarning() << "[license:activate] The next activation time(ms):" << auto_timing_msec;
-            emit ui->licenseMenu->actions().first()->triggered(true);
-        });
+        /* 第一次(10)分钟激活 第二次(10*2=20)分钟 依次类推 */
+        activateTimer->start(auto_timing_msec);
     });
     QTimer::singleShot(30 * 1000, this, [=]() {                 /* 上电 30 秒后开始检测激活 */
-        qWarning() << "[license:activate] The first activation time(ms): 30000";
+        qWarning() << "[license:activate] The first activation time(s): 30, next time(s): 600";
         emit activeAction->triggered(true);
     });
 
