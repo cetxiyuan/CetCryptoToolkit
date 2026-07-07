@@ -176,7 +176,7 @@ void MainWindow::initFeaturesPlugin()
         auto_timing_active = true;
         auto_timing_msec = auto_timing_msec * 2;
         if (auto_timing_msec > 24 * 60 * 60 * 1000)
-            auto_timing_msec = 30 * 60 * 1000; // 超过 24 小时重置
+            auto_timing_msec = 10 * 60 * 1000; // 超过 24 小时重置
         qWarning() << "[license:activate] The next activation time(s):" 
                    << auto_timing_msec / 1000;
         emit ui->licenseMenu->actions().first()->triggered(true);
