@@ -6,6 +6,8 @@
 #include <QDir>
 #include <QTimer>
 #include <QPluginLoader>
+#include <QCryptographicHash>
+#include <QFile>
 #include <QSettings>
 #include <QTextCodec>
 #include <QMessageBox>
@@ -16,12 +18,21 @@
 
 #include <QDebug>
 
+#include "cettoolplugins_hash.h"
+
 #define INIT_INTERFACE(mInterface, name)    \
     mInterface(qobject_cast<typeof(mInterface)>(loadPlugin(name)))
 #define LOAD_INTERFACE(mInterface, name, isRemind)    \
-    mInterface = qobject_cast<typeof(mInterface)>(loadPlugin(name));    \
-    if (!mInterface && isRemind)    \
-        QMessageBox::warning(this, tr("警告"), tr("缺少 (%1) 库\t").arg(name))
+{    \
+    QString pluginErr;    \
+    mInterface = qobject_cast<typeof(mInterface)>(loadPlugin(name, &pluginErr));    \
+    if (!mInterface && isRemind) {    \
+        if (pluginErr.isEmpty())    \
+            QMessageBox::warning(this, tr("警告"), tr("缺少 (%1) 库\t").arg(name));    \
+        else    \
+            QMessageBox::critical(this, tr("安全警告"), pluginErr);    \
+    }    \
+}
 
 
 #define CETRECORD_DIR "./Record"
@@ -141,7 +152,26 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-QObject *MainWindow::loadPlugin(const QString &dllName)
+static bool checkPluginIntegrity(const QString &dllPath, const QString &dllName)
+{
+    QFile f(dllPath);
+    if (!f.open(QIODevice::ReadOnly))
+        return false;
+    QByteArray hash = QCryptographicHash::hash(f.readAll(), QCryptographicHash::Sha256).toHex();
+    f.close();
+
+    QString lowerName = dllName.toLower();
+    if (lowerName == "cetlicenseplugin.dll")
+        return (hash == HASH_CetLicensePlugin_DLL);
+    if (lowerName == "cetupdateplugin.dll")
+        return (hash == HASH_CetUpdatePlugin_DLL);
+    if (lowerName == "cetprogressplugin.dll")
+        return (hash == HASH_CetProgressPlugin_DLL);
+
+    return true;
+}
+
+QObject *MainWindow::loadPlugin(const QString &dllName, QString *errInfo)
 {
     QObject *plugin = nullptr;
     QDir pluginsDir("D:/Program Files (x86)/CetXiyuan/CetToolDLLs/plugins");
@@ -151,6 +181,12 @@ QObject *MainWindow::loadPlugin(const QString &dllName)
 
     foreach (const QString &fileName, pluginsDir.entryList(QDir::Files)) {
         if (0 == dllName.compare(fileName, Qt::CaseInsensitive)) {
+            if (!checkPluginIntegrity(pluginsDir.absoluteFilePath(fileName), dllName)) {
+                qWarning() << "[integrity]" << dllName << "哈希校验失败，拒绝加载";
+                if (errInfo)
+                    *errInfo = tr("插件 %1 哈希校验失败，可能已被篡改，已拒绝加载！").arg(dllName);
+                break;
+            }
             QPluginLoader pluginLoader(pluginsDir.absoluteFilePath(fileName));
             plugin = pluginLoader.instance();
             if (plugin) {

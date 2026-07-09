@@ -77,7 +77,7 @@ private:
     QByteArray getData(bool isFile, const QString &fileName, bool inBase64 = false);
 
 private:
-    QObject *loadPlugin(const QString &dllName);
+    QObject *loadPlugin(const QString &dllName, QString *errInfo = nullptr);
     void initFeaturesPlugin();
 
 private:
