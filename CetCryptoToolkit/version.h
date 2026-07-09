@@ -10,7 +10,7 @@
 
 /* 版本号定义 */
 #define VER_MAJOR               2       /* 主版本号 */
-#define VER_MINOR               4       /* 次版本号 */
+#define VER_MINOR               5       /* 次版本号 */
 #define VER_MICRO               0       /* 小版本号 */
 
 /* 正式版发布日期 
@@ -19,10 +19,10 @@
     CCTK100: CetCryptoToolkit 100
     G631: G(26年, A-20年)6(6月 A-10月 B-11月 C-12月)31(24日 31-6(月)=25)
 */
-#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK240.G631)" // "(2026-06-25)"
+#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK250.G716)" // "(2026-07-09)"
 
 /* 补丁包号(月+日+序号) */
-#define PATCH_PACKET            "5251"
+#define PATCH_PACKET            "7071"
 
 /* 版本宏定义 */
 #define VERSION_CHECK(major, minor, micro)  (((major)<<16)|((minor)<<8)|((micro)<<0))
