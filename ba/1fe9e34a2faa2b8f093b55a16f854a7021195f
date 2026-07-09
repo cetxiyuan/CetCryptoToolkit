@@ -1,0 +1,29 @@
+CetCryptoToolkit/CetCryptoToolkit.pro
+  s_8cc836efc26cfb::t_f305710f13391a 27-28
+CetCryptoToolkit/version.h
+  s_1b6aa5f96623ae::t_ac285b2c223d2e 13,22,25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ba1fe9e34a2faa2b8f093b55a16f854a7021195f",
+  "prompts": {},
+  "sessions": {
+    "s_1b6aa5f96623ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1ce4b9a7-965d-4985-90cf-303c341b9a6f",
+        "model": "unknown"
+      },
+      "human_author": "cetxiyuan <zhengjianyu@yaxon.com>"
+    },
+    "s_8cc836efc26cfb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "21097ebd-f0a6-4b05-aa1b-5f3cb8036e7d",
+        "model": "unknown"
+      },
+      "human_author": "cetxiyuan <zhengjianyu@yaxon.com>"
+    }
+  }
+}
