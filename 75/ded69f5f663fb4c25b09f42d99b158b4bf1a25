@@ -1,0 +1,48 @@
+CetCryptoToolkit/mainwindow/mainwindow.cpp
+  s_ce916fac96efce::t_9423323a86efe8 9-10
+  s_ce916fac96efce::t_f88e454ac0cdd1 34
+  s_8cc836efc26cfb::t_9135d6b9335624 21-22,26-33,35,172
+  s_cb2f892ee43349::t_e3cdd9dcc4bc16 155-171,173-174,184-189
+CetCryptoToolkit/mainwindow/mainwindow.h
+  s_193b5c654cb363::t_e0e24b59fd8020 80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "75ded69f5f663fb4c25b09f42d99b158b4bf1a25",
+  "prompts": {},
+  "sessions": {
+    "s_193b5c654cb363": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a2a439f4ab92ce3cd",
+        "model": "unknown"
+      },
+      "human_author": "cetxiyuan <zhengjianyu@yaxon.com>"
+    },
+    "s_8cc836efc26cfb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "21097ebd-f0a6-4b05-aa1b-5f3cb8036e7d",
+        "model": "deepseek-v4-pro"
+      },
+      "human_author": "cetxiyuan <zhengjianyu@yaxon.com>"
+    },
+    "s_cb2f892ee43349": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4b05d7fe-4733-4862-8813-9780824a272b",
+        "model": "glm-5.2"
+      },
+      "human_author": "cetxiyuan <zhengjianyu@yaxon.com>"
+    },
+    "s_ce916fac96efce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7368a389-c476-4765-aca6-95f39d4e638a",
+        "model": "glm-5.2"
+      },
+      "human_author": "cetxiyuan <zhengjianyu@yaxon.com>"
+    }
+  }
+}
