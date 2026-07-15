@@ -1,0 +1,26 @@
+CetCryptoToolkit/mainwindow/mainwindow.cpp
+  s_b6d28002f7cca6::t_5be4c4cfae41e5 3
+  s_b6d28002f7cca6::t_202d50d4fa1a5f 39,92-93
+CetCryptoToolkit/mainwindow/cettoolplugincontext.h
+  s_b6d28002f7cca6::t_964b1ca1e33477 1-64
+CetCryptoToolkit/CetCryptoToolkit.pro
+  s_b6d28002f7cca6::t_f8faf333e52790 28
+CetCryptoToolkit/mainwindow/mainwindow.h
+  s_b6d28002f7cca6::t_46328e695c8b80 4,78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "bb3a5d2f8d31ef5769cbe8770937f8ce6fb516fa",
+  "prompts": {},
+  "sessions": {
+    "s_b6d28002f7cca6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "30163b75-cc15-420b-bde3-6afc476fe3a5",
+        "model": "deepseek-v4-pro"
+      },
+      "human_author": "cetxiyuan <zhengjianyu@yaxon.com>"
+    }
+  }
+}
