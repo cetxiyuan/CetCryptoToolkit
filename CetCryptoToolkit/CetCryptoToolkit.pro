@@ -25,7 +25,7 @@ INCLUDEPATH += \
         $$PWD/modules \
         $$PWD/interfaces \
         $$PWD/include \
-        $$PWD/../../CetToolDLLs/CetToolPlugins
+        $$PWD/../../CetToolDLLs
 
 include ($$PWD/mainwindow/mainwindow.pri)
 include ($$PWD/modules/modules.pri)

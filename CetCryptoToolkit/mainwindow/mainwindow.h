@@ -1,10 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "cetlogmanagerinterface.h"
-#include "cetlicenseinterface.h"
-#include "cetupdateinterface.h"
-#include "cetprogressinterface.h"
+#include "cettoolplugincontext.h"
 
 #include "opensslhelper.h"
 #include "certificatemanager.h"
@@ -77,19 +74,11 @@ private:
     QByteArray getData(bool isFile, const QString &fileName, bool inBase64 = false);
 
 private:
-    QObject *loadPlugin(const QString &dllName, QString *errInfo = nullptr);
-    void initFeaturesPlugin();
-
-private:
     Ui::MainWindow *ui;
-    CetLogManagerInterface *m_cetLogManagerInterface;
+    CetToolPluginContext *const m_toolPluginCtx;
     QSettings *const m_settings;
     OpenSSLHelper *const m_openSSLHelper;
     CertificateManager *const m_certManager;
-
-    CetLicenseInterface *m_cetLicenseInterface;
-    CetUpdateInterface *m_cetUpdateInterface;
-    CetProgressInterface *m_cetProgressInterface;
 
     QSslKey m_privateKey;   // 非对称加密算法的私钥
     QSslKey m_publicKey;    // 非对称加密算法的公钥

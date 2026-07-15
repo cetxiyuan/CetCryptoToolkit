@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "cettooldlls_hashes.h"
 
 #include "version.h"
 
@@ -18,23 +19,6 @@
 
 #include <QDebug>
 
-#include "cettoolplugins_hash.h"
-
-#define INIT_INTERFACE(mInterface, name)    \
-    mInterface(qobject_cast<typeof(mInterface)>(loadPlugin(name)))
-#define LOAD_INTERFACE(mInterface, name, isRemind)    \
-{    \
-    QString pluginErr;    \
-    mInterface = qobject_cast<typeof(mInterface)>(loadPlugin(name, &pluginErr));    \
-    if (!mInterface && isRemind) {    \
-        if (pluginErr.isEmpty())    \
-            QMessageBox::warning(this, tr("警告"), tr("缺少 (%1) 库\t").arg(name));    \
-        else    \
-            QMessageBox::critical(this, tr("安全警告"), pluginErr);    \
-    }    \
-}
-
-
 #define CETRECORD_DIR "./Record"
 #define CETCRYPTOTOOLKIT_VERSION  "CetCryptoToolkit V" APP_VERSION " " TIP_VERSION
 #define CETCRYPTOTOOLKIT_INFO     "  欢迎使用：" APP_NAME \
@@ -52,7 +36,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , INIT_INTERFACE(m_cetLogManagerInterface, "CetLogManagerPlugin.dll")
+    , m_toolPluginCtx(new CetToolPluginContext(HASH_CetProductWizard_DLL, this))
     , m_settings(new QSettings("Configs/AppMaster.ini", QSettings::IniFormat))
     , m_openSSLHelper(new OpenSSLHelper())
     , m_certManager(new CertificateManager(m_openSSLHelper, this))
@@ -105,7 +89,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->seaEncryptToolButton->setVisible(false);
     ui->seaDecryptToolButton->setVisible(false);
 
-    initFeaturesPlugin();
+    m_toolPluginCtx->initFeatures(ui->logManagerMenu, ui->licenseMenu,
+        PRODUCT_NAME, tr(CETCRYPTOTOOLKIT_VERSION), APP_NAME, APP_VERSION);
 
     connect(ui->certConfigureToolButton, &QToolButton::clicked, 
         m_certManager, &CertificateManager::show);
@@ -142,128 +127,10 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    delete m_cetProgressInterface;
-    delete m_cetUpdateInterface;
-    delete m_cetLicenseInterface;
-
     delete m_settings;
-    delete m_cetLogManagerInterface;
 
     delete ui;
 }
-
-static bool checkPluginIntegrity(const QString &dllPath, const QString &dllName)
-{
-    QFile f(dllPath);
-    if (!f.open(QIODevice::ReadOnly))
-        return false;
-    QByteArray hash = QCryptographicHash::hash(f.readAll(), QCryptographicHash::Sha256).toHex();
-    f.close();
-
-    QString lowerName = dllName.toLower();
-    if (lowerName == "cetlicenseplugin.dll")
-        return (hash == HASH_CetLicensePlugin_DLL);
-    if (lowerName == "cetupdateplugin.dll")
-        return (hash == HASH_CetUpdatePlugin_DLL);
-    if (lowerName == "cetprogressplugin.dll")
-        return (hash == HASH_CetProgressPlugin_DLL);
-
-    return true;
-}
-
-QObject *MainWindow::loadPlugin(const QString &dllName, QString *errInfo)
-{
-    QObject *plugin = nullptr;
-    QDir pluginsDir("D:/Program Files (x86)/CetXiyuan/CetToolDLLs/plugins");
-
-    if (!pluginsDir.exists())
-        pluginsDir.setPath("./plugins");
-
-    foreach (const QString &fileName, pluginsDir.entryList(QDir::Files)) {
-        if (0 == dllName.compare(fileName, Qt::CaseInsensitive)) {
-            if (!checkPluginIntegrity(pluginsDir.absoluteFilePath(fileName), dllName)) {
-                qWarning() << "[integrity]" << dllName << "哈希校验失败，拒绝加载";
-                if (errInfo)
-                    *errInfo = tr("插件 %1 哈希校验失败，可能已被篡改，已拒绝加载！").arg(dllName);
-                break;
-            }
-            QPluginLoader pluginLoader(pluginsDir.absoluteFilePath(fileName));
-            plugin = pluginLoader.instance();
-            if (plugin) {
-                plugin->setParent(this);
-            }
-            break;
-        }
-    }
-
-    return plugin;
-}
-
-void MainWindow::initFeaturesPlugin()
-{
-    ui->logManagerMenu->addAction(tr("控制"), this, [=]() {
-            m_cetLogManagerInterface->show();
-        });
-
-    static QTimer *activateTimer = new QTimer(this);
-    static bool auto_timing_active = true;
-    static int auto_timing_msec = 10 * 60 * 1000; // 10 分钟
-    connect(activateTimer, &QTimer::timeout, this, [=]() {
-        auto_timing_active = true;
-        auto_timing_msec = auto_timing_msec * 2;
-        if (auto_timing_msec > 24 * 60 * 60 * 1000)
-            auto_timing_msec = 10 * 60 * 1000; // 超过 24 小时重置
-        qWarning() << "[license:activate] The next activation time(s):" 
-                   << auto_timing_msec / 1000;
-        emit ui->licenseMenu->actions().first()->triggered(true);
-    });
-
-    LOAD_INTERFACE(m_cetLicenseInterface, "CetLicensePlugin.dll", true);
-    if (m_cetLicenseInterface)
-        m_cetLicenseInterface->initialize(PRODUCT_NAME);
-    QAction *activeAction = ui->licenseMenu->addAction(tr("激活"), this, [=]() {
-        int result = 0;
-        bool activated = false;
-        if (m_cetLicenseInterface) {
-            result = (auto_timing_active ? m_cetLicenseInterface->activate()
-                                         : m_cetLicenseInterface->activateWindow());
-            if (CetLicenseInterface::ACTIVATE_CANCEL == result)
-                goto timing_active;
-            activated = (CetLicenseInterface::ACTIVATE_OK == result);
-        }
-        if (activated) {
-            this->setWindowTitle(tr(CETCRYPTOTOOLKIT_VERSION));
-            this->statusBar()->clearMessage();
-        } else {
-            QString expireInfo = tr("%1 [ 已到期 (%2) (%3) ]").arg(
-                tr(CETCRYPTOTOOLKIT_VERSION), PRODUCT_NAME, 
-                m_cetLicenseInterface? m_cetLicenseInterface->solidKey() : "");
-            this->setWindowTitle(expireInfo);
-            this->statusBar()->showMessage(tr("%1 请激活后使用！").arg(expireInfo), 60 * 1000);
-        }
-        this->centralWidget()->setEnabled(activated);
-
-        if (!auto_timing_active && CetLicenseInterface::ACTIVATE_CANCEL != result) {
-            QMessageBox::information(this, tr("通知"), (m_cetLicenseInterface? 
-                m_cetLicenseInterface->resultString() : "") + "\t", QMessageBox::Ok);
-        }
-    timing_active:
-        auto_timing_active = false;
-        /* 第一次(10)分钟激活 第二次(10*2=20)分钟 依次类推 */
-        activateTimer->start(auto_timing_msec);
-    });
-    QTimer::singleShot(30 * 1000, this, [=]() {                 /* 上电 30 秒后开始检测激活 */
-        qWarning() << "[license:activate] The first activation time(s): 30, next time(s): 600";
-        emit activeAction->triggered(true);
-    });
-
-    LOAD_INTERFACE(m_cetUpdateInterface, "CetUpdatePlugin.dll", true);
-    if (m_cetUpdateInterface)
-        m_cetUpdateInterface->checkUpdate(APP_NAME, APP_VERSION, QCoreApplication::quit);
-
-    LOAD_INTERFACE(m_cetProgressInterface, "CetProgressPlugin.dll", false);
-}
-
 // 返回原始数据
 QByteArray MainWindow::getData(bool isFile, const QString &fileName, bool inBase64)
 {
