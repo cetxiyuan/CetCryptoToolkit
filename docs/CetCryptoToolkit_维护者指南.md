@@ -1,6 +1,6 @@
 # CetCryptoToolkit 维护者指南
 
-> 适用版本：CetCryptoToolkit v2.4.0
+> 适用版本：CetCryptoToolkit v2.5.0
 > 作者：CetXiyuan（璟·汐源忆醉）
 
 ---
@@ -77,7 +77,7 @@ cleanup:
 
 **OpenSSLHelper 的所有权转移**：`MainWindow` 创建 `OpenSSLHelper`，并将其指针传给 `CertificateManager`。`CertificateManager::~CertificateManager()` 会执行 `delete m_openSSLHelper`，即 **CertificateManager 接管了 OpenSSLHelper 的所有权**。MainWindow 在析构时不应再次 delete，Qt 父子关系（CertificateManager 的 parent 是 MainWindow）会确保正确的析构顺序。
 
-**插件接口对象**：`CetLicenseInterface`、`CetUpdateInterface`、`CetProgressInterface` 由 `loadPlugin()` 返回，并通过 `plugin->setParent(this)` 挂到 MainWindow 上，由 Qt 父子关系自动管理生命周期。析构时显式 delete 是为了确保在 UI 析构前释放。
+**插件接口对象**：v2.5.0 起，插件接口（`CetLicenseInterface`、`CetUpdateInterface` 等）由 `CetToolPluginContext` 统一管理。`CetToolPluginContext` 作为 `MainWindow` 的子对象，其生命周期由 Qt 父子关系自动管理。`CetToolPluginContext::loadPlugin()` 支持 DLL SHA256 完整性校验，防止插件被替换。
 
 ### 1.6 错误处理
 
@@ -113,8 +113,9 @@ cleanup:
 ```
 Fixed: 上电首次自动激活改成 30 秒
 Updated: 许可2.0对应的插件包
-发布正式版 V2.4.0
-Fixed: 修复升级功能容易失败(延长10秒/去掉HTTP请求超时设置)
+发布正式版 V2.5.0
+重构 mainwindow 使用 CetToolPluginContext
+Updated: 支持临时授权、停用/拒绝状态，拒绝后停止重试
 ```
 
 ---
@@ -127,14 +128,14 @@ Fixed: 修复升级功能容易失败(延长10秒/去掉HTTP请求超时设置)
 
 ```cpp
 #define VER_MAJOR               2       /* 主版本号 */
-#define VER_MINOR               4       /* 次版本号 */
+#define VER_MINOR               5       /* 次版本号 */
 #define VER_MICRO               0       /* 小版本号 */
-#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK240.G631)"
+#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK250.G716)"
 // CXYQK5152 = CetXiyuan QT Kernel 5.15.2
-// CCTK240 = CetCryptoToolkit v2.4.0
-// G631 = G(2026年-20) 6(6月) 31(25日=31-6)
+// CCTK250 = CetCryptoToolkit v2.5.0
+// G716 = G(2026年-20) 7(7月) 16(9日=16-7)
 
-#define PATCH_PACKET            "5251"  // 开发版使用：月+日+序号
+#define PATCH_PACKET            "7152"  // 开发版使用：月+日+序号
 ```
 
 确保 `IS_RELEASE_VERSION` 为 `1`（正式版）。
@@ -161,9 +162,9 @@ cp ../plugins/*.dll plugins/
 ### 3.3 打标签
 
 ```bash
-git tag -a v2.4.0 -m "发布正式版 V2.4.0"
+git tag -a v2.5.0 -m "发布正式版 V2.5.0"
 git push origin master
-git push origin v2.4.0
+git push origin v2.5.0
 ```
 
 ---
@@ -431,6 +432,22 @@ if (!crlUrl.isEmpty())
 ### 7.7 修改 AES IV 生成逻辑
 
 编辑 `aesGenerateIV()`：将 GCM 模式的 IV 从 12 字节改为 16 字节，同步修改 `on_seaEncryptModeComboBox_currentTextChanged()` 中的默认 IV 值。
+
+### 7.8 插件集成（CetToolPluginContext）
+
+v2.5.0 起，新项目的插件集成使用 `CetToolPluginContext`：
+
+```cpp
+// mainwindow.cpp 构造函数初始化列表中
+m_toolPluginCtx(new CetToolPluginContext(HASH_CetProductWizard_DLL, this))
+
+// 构造函数体中调用
+m_toolPluginCtx->initFeatures(ui->logManagerMenu, ui->licenseMenu,
+    PRODUCT_NAME, CETCRYPTOTOOLKIT_VERSION, APP_NAME, APP_VERSION);
+// 可选：传入 std::function<void(bool)> 回调处理激活结果
+```
+
+`CetToolPluginContext` 内置 DLL 完整性校验（SHA256），构造函数传入编译时计算的 DLL 哈希值，运行时对比防止插件被替换。
 
 ---
 

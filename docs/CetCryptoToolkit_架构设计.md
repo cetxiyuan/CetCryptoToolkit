@@ -1,7 +1,7 @@
 # CetCryptoToolkit 架构设计
 
 > 作者：CetXiyuan（璟·汐源忆醉）
-> 版本：v2.4.0
+> 版本：v2.5.0
 > 平台：Windows，Qt 5.15.2 (MinGW, 32-bit)，OpenSSL 3.x
 
 ---
@@ -25,19 +25,26 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 ┌───────────────────────────▼──────────────────────────────────┐
 │                    MainWindow（主窗口）                        │
 │  • UI 调度层，持有并协调所有功能模块                           │
-│  • 运行时动态加载外部插件（loadPlugin）                        │
 │  • 持有 OpenSSLHelper、CertificateManager 实例                │
 │  • 配置持久化：Configs/AppMaster.ini（QSettings）             │
 └─────┬────────────┬───────────────────────┬────────────────────┘
       │            │                       │
       ▼            ▼                       ▼
 ┌──────────┐ ┌──────────────────┐ ┌─────────────────────────┐
-│OpenSSL   │ │CertificateManager│ │  插件接口层（interfaces/）│
-│Helper    │ │（证书管理对话框） │ │  CetLogManagerInterface  │
-│（核心）  │ │  调用 OpenSSL-   │ │  CetLicenseInterface     │
-│          │ │  Helper 完成签发 │ │  CetUpdateInterface      │
-└──────────┘ └──────────────────┘ │  CetProgressInterface    │
-                                  └─────────────────────────┘
+│OpenSSL   │ │CertificateManager│ │  CetToolPluginContext   │
+│Helper    │ │（证书管理对话框） │ │  （插件统一管理 v2.5.0）│
+│（核心）  │ │  调用 OpenSSL-   │ │  • 完整性校验(SHA256)   │
+│          │ │  Helper 完成签发 │ │  • 插件加载与生命周期   │
+└──────────┘ └──────────────────┘ └──────────┬──────────────┘
+                                            │
+                    ┌────────────────────────┼────────────────────┐
+                    ▼                        ▼                    ▼
+            ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐
+            │ 插件接口层    │   │ 插件接口层    │   │ 插件接口层        │
+            │ interfaces/  │   │ interfaces/  │   │ interfaces/      │
+            │ License      │   │ Update       │   │ LogManager       │
+            │ Progress     │   │              │   │                  │
+            └──────────────┘   └──────────────┘   └──────────────────┘
 ```
 
 ### 关键数据流
@@ -58,7 +65,8 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 | **业务调度层** | MainWindow 的 slot 函数，负责数据获取、调用 OpenSSLHelper、结果展示 |
 | **密码学核心层** | OpenSSLHelper，封装 OpenSSL 3.x C API，提供统一接口 |
 | **基础设施层** | OpenSSL 3.x 动态库、Qt 5.15.2 框架 |
-| **插件扩展层** | 通过 Qt 插件机制加载 CetProductWizard.dll，提供日志/许可/更新功能 |
+| **插件管理层** | CetToolPluginContext（v2.5.0），统一管理插件加载、SHA256 完整性校验 |
+| **插件扩展层** | 通过 Qt 插件机制加载 CetProductWizard.dll，提供日志/许可/更新/CAN 功能 |
 
 ---
 
@@ -113,7 +121,7 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 **默认扩展字段：**
 - RootCA：`basicConstraints=critical,CA:TRUE,pathlen:1` + `keyUsage=keyCertSign,cRLSign`
 - SubCA：`basicConstraints=critical,CA:TRUE,pathlen:0` + `keyUsage=keyCertSign,cRLSign`
-- EndEntity：`basicConstraints=CA:FALSE` + `keyUsage=digitalSignature,keyEncipherment` + `extendedKeyUsage=serverAuth,clientAuth` + `subjectAltName=DNS:example.com,IP:127.0.0.1`
+- EndEntity：`basicConstraints=CA:FALSE` + `keyUsage=digitalSignature,keyEncipherment` + `subjectKeyIdentifier=hash` + `authorityKeyIdentifier=keyid:always,issuer:always` + `extendedKeyUsage=serverAuth,clientAuth` + `subjectAltName=DNS:example.com,IP:127.0.0.1`
 
 **输出文件（以 EndEntity 为例）：**
 
@@ -156,9 +164,18 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 
 ---
 
-### 3.4 插件接口层（`interfaces/`）
+### 3.4 CetToolPluginContext（`mainwindow/cettoolplugincontext.h`）
 
-采用 Qt 插件机制，主窗口在启动时从固定路径动态加载 DLL：
+**v2.5.0 新增**，统一管理所有功能插件的加载、SHA256 完整性校验和生命周期。
+
+- **构造时**：传入 `CetProductWizard.dll` 的编译时 SHA256 哈希，运行时校验防止 DLL 被替换
+- **`initFeatures()`**：一次性初始化所有功能插件，自动连接菜单和信号
+- **访问器**：`logManager()` / `license()` / `updater()` / `progress()` 返回对应接口指针
+- **`loadPlugin()`**：带完整性校验的 DLL 加载，校验失败返回 nullptr
+
+### 3.5 插件接口层（`interfaces/`）
+
+动态加载路径：
 
 ```
 优先路径：D:/Program Files (x86)/CetXiyuan/CetToolDLLs/plugins/
@@ -168,9 +185,10 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 | 接口 | DLL | 功能 |
 |------|-----|------|
 | `CetLogManagerInterface` | `CetLogManagerPlugin.dll` | 日志管理窗口 |
-| `CetLicenseInterface` | `CetLicensePlugin.dll` | 授权验证 |
+| `CetLicenseInterface` | `CetLicensePlugin.dll` | 授权验证（支持 Ed25519 签名） |
 | `CetUpdateInterface` | `CetUpdatePlugin.dll` | 软件更新检查 |
 | `CetProgressInterface` | `CetProgressPlugin.dll` | 进度显示 |
+| — | `CetCANPlugin.dll` | CAN 总线通信 |
 
 > 插件缺失时仅弹出警告，不影响核心密码学功能使用。
 
@@ -203,8 +221,6 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 | **槽函数** | `on_seaDecryptPushButton_clicked()` | 对称解密（AES/SM4） |
 | **槽函数** | `on_aes128cmacPushButton_clicked()` | AES-128-CMAC 计算 |
 | **私有方法** | `getData(isFile, fileName, inBase64)` | 从文件或文本获取原始数据 |
-| **私有方法** | `loadPlugin(dllName)` | 动态加载 Qt 插件 DLL |
-| **私有方法** | `initFeaturesPlugin()` | 初始化许可/更新等插件功能 |
 
 **重要属性**：
 
@@ -214,7 +230,7 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 | `m_publicKey` | `QSslKey` | 当前非对称加密的公钥 |
 | `m_openSSLHelper` | `OpenSSLHelper *const` | 密码学核心层对象 |
 | `m_certManager` | `CertificateManager *const` | 证书管理对话框 |
-| `m_cetLogManagerInterface` | `CetLogManagerInterface *` | 日志管理插件接口 |
+| `m_toolPluginCtx` | `CetToolPluginContext *const` | 插件统一管理（v2.5.0） |
 | `m_settings` | `QSettings *const` | 配置存储（Configs/AppMaster.ini，UTF-8） |
 
 ### 4.2 OpenSSLHelper（密码学核心封装）
@@ -415,12 +431,16 @@ MainWindow::on_seaEncryptPushButton_clicked()
 应用启动
     │
     ▼
-initFeaturesPlugin()
+CetToolPluginContext::initFeatures()
     │
-    ├── 1. 加载 CetLicensePlugin.dll（QPluginLoader）
-    ├── 2. initialize(PRODUCT_NAME)
-    ├── 3. 上电 30 秒后首次自动激活
-    └── 4. 定时激活（间隔 30min→60min→120min... 翻倍递增）
+    ├── 1. 自检 CetProductWizard.dll SHA256 完整性
+    ├── 2. 加载 CetLicensePlugin.dll（QPluginLoader）
+    ├── 3. initialize(PRODUCT_NAME)
+    ├── 4. 上电 30 秒后首次自动激活
+    └── 5. 定时激活（间隔 30min→60min→120min... 翻倍递增，上限 2h）
+         ├── 许可正常：持续定时激活
+         ├── 临时授权：记录状态，到期前提醒
+         └── 拒绝/停用：停止自动重试
 ```
 
 ---
@@ -433,7 +453,7 @@ initFeaturesPlugin()
 |------|------|------|------|
 | **OpenSSL** | 3.x | 所有密码学运算 | 动态链接 `libcrypto-3.dll` / `libssl-3.dll` |
 | **Qt** | 5.15.2 | GUI 框架、网络、文件操作 | 动态链接 |
-| **CetProductWizard** | — | 插件宿主 DLL | 运行时 `QPluginLoader` |
+| **CetProductWizard** | — | 产品向导框架 + SHA256 校验基准 DLL | 编译时链接 `-lCetProductWizard` |
 
 ### 6.2 Qt 模块依赖
 
@@ -469,15 +489,15 @@ CetCryptoToolkit.pro（qmake 主入口）
 ```
 main.cpp
   └── mainwindow.h
-        ├── opensslhelper.h ────── openssl/*.h (OpenSSL C API)
-        ├── certificatemanager.h ── opensslhelper.h
-        ├── cetlogmanagerinterface.h
-        ├── cetlicenseinterface.h
-        ├── cetupdateinterface.h
-        └── cetprogressinterface.h
+        ├── opensslhelper.h ────────── openssl/*.h (OpenSSL C API)
+        ├── certificatemanager.h ────── opensslhelper.h
+        └── cettoolplugincontext.h ──── cetlicenseinterface.h
+                                       cetlogmanagerinterface.h
+                                       cetupdateinterface.h
+                                       cetprogressinterface.h
 ```
 
-`CertificateManager` 依赖 `OpenSSLHelper`，`MainWindow` 依赖所有模块。
+`CertificateManager` 依赖 `OpenSSLHelper`，`CetToolPluginContext` 管理所有插件接口，`MainWindow` 依赖所有模块。
 
 ---
 
@@ -525,9 +545,9 @@ SM2 签名特殊性：需要传入 `userId`（默认为标准值 `12345678123456
 
 ### 9.2 插件化的功能扩展
 
-**决策**：日志/许可/更新/进度功能通过 Qt 插件机制（`QPluginLoader`）实现。
+**决策**：日志/许可/更新/进度/CAN 功能通过 Qt 插件机制（`QPluginLoader`）实现，v2.5.0 引入 `CetToolPluginContext` 统一管理。
 
-**理由**：解耦主程序与商业功能，各模块独立开发升级。基础版/Custom 版/全功能版通过不同插件组合实现。插件缺失仅警告，不影响核心密码学功能。
+**理由**：解耦主程序与商业功能，各模块独立开发升级。基础版/Custom 版/全功能版通过不同插件组合实现。插件缺失仅警告，不影响核心密码学功能。`CetToolPluginContext` 提供编译时 SHA256 校验，防止插件 DLL 被替换或篡改，增强安全性。
 
 ### 9.3 三级 PKI 证书体系
 

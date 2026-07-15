@@ -4,368 +4,191 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CetCryptoToolkit</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
 <style>
-/* ===== 页面主体 ===== */
-*, *::before, *::after { box-sizing: border-box; }
-body {
-  margin: 0;
-  padding: 24px 16px 60px;
-  background: #fafafa;
-  color: #1e2a3e;
-  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  font-size: 15px;
-  line-height: 1.75;
-}
-#doc-wrap {
-  max-width: 1000px;
-  margin: 0 auto;
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 40px 48px 48px;
-  box-shadow: 0 2px 12px rgba(0,0,0,.06);
-  position: relative;
-}
-/* ===== 标题 ===== */
-h1,h2,h3,h4,h5,h6 {
-  color: #1e2a3e;
-  margin-top: 1.6em;
-  margin-bottom: .5em;
-  line-height: 1.3;
-}
-h1 { font-size: 2em; border-bottom: 2px solid #e2e8f0; padding-bottom: .3em; }
-h2 { font-size: 1.5em; border-bottom: 1px solid #e2e8f0; padding-bottom: .2em; }
-h3 { font-size: 1.2em; }
-/* ===== 段落 / 链接 ===== */
-p { margin: .6em 0 .9em; }
-a { color: #2563eb; text-decoration: none; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #fafafa; color: #1e2a3e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.7; }
+#doc-content { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
+h1 { font-size: 2em; margin: 0.8em 0 0.4em; padding-bottom: 0.3em; border-bottom: 2px solid #e2e8f0; color: #1a202c; }
+h2 { font-size: 1.5em; margin: 1.2em 0 0.5em; padding-bottom: 0.2em; border-bottom: 1px solid #e2e8f0; color: #2d3748; }
+h3 { font-size: 1.2em; margin: 1em 0 0.4em; color: #4a5568; }
+h4 { font-size: 1.05em; margin: 0.8em 0 0.3em; color: #4a5568; }
+p { margin: 0.6em 0; }
+a { color: #3182ce; text-decoration: none; }
 a:hover { text-decoration: underline; }
-/* ===== 引用块 ===== */
-blockquote {
-  margin: 1em 0;
-  padding: 10px 20px;
-  background: #f6f8fa;
-  border-left: 4px solid #94a3b8;
-  color: #475569;
-  border-radius: 0 4px 4px 0;
-}
-blockquote p { margin: 0; }
-/* ===== 表格 ===== */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 1em 0;
-  font-size: .93em;
-}
-th,td {
-  border: 1px solid #e2e8f0;
-  padding: 8px 14px;
-  text-align: left;
-}
-th {
-  background: #f6f8fa;
-  font-weight: 600;
-  color: #1e2a3e;
-}
-tr:nth-child(even) td { background: #fafafa; }
-/* ===== 列表 ===== */
-ul,ol { padding-left: 1.6em; margin: .5em 0 .9em; }
-li { margin: .3em 0; }
-/* ===== 行内代码 ===== */
-#doc-content code:not(pre code) {
-  background: #f0f4f8 !important;
-  color: #c7254e !important;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: .88em;
-  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
-}
-/* ===== 代码块容器 ===== */
-#doc-content pre {
-  position: relative;
-  margin: 1em 0;
-  border-radius: 6px;
-  overflow-x: auto;
-}
-#doc-content pre code {
-  display: block;
-  padding: 16px 18px;
-  font-size: .88em;
-  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
-  line-height: 1.6;
-  background: #1e1e1e !important;
-  color: #abb2bf;  /* 默认浅灰，pygments 着色后会覆盖 */
-  border-radius: 6px;
-}
-/* ===== Pygments 语法高亮（one-dark 风格） ===== */
-.codehilite { margin: 0; }
-.codehilite pre { margin: 0; }
-.hll { background-color: #49483e }
-.c  { color: #75715e } /* 注释 */
-.err{ color: #960050; background-color: #1e0010 }
-.k  { color: #66d9ef } /* 关键字 */
-.l  { color: #ae81ff }
-.n  { color: #f8f8f2 }
-.o  { color: #f92672 } /* 运算符 */
-.p  { color: #f8f8f2 }
-.cm { color: #75715e }
-.cp { color: #75715e }
-.c1 { color: #75715e }
-.cs { color: #75715e }
-.ge { font-style: italic }
-.gs { font-weight: bold }
-.kc { color: #66d9ef }
-.kd { color: #66d9ef }
-.kn { color: #f92672 }
-.kp { color: #66d9ef }
-.kr { color: #66d9ef }
-.kt { color: #66d9ef }
-.ld { color: #e6db74 }
-.m  { color: #ae81ff } /* 数字 */
-.s  { color: #e6db74 } /* 字符串 */
-.na { color: #a6e22e }
-.nb { color: #f8f8f2 }
-.nc { color: #a6e22e }
-.no { color: #66d9ef }
-.nd { color: #a6e22e }
-.ni { color: #f8f8f2 }
-.ne { color: #a6e22e }
-.nf { color: #a6e22e } /* 函数名 */
-.nl { color: #f8f8f2 }
-.nn { color: #f8f8f2 }
-.nx { color: #a6e22e }
-.py { color: #f8f8f2 }
-.nt { color: #f92672 }
-.nv { color: #f8f8f2 }
-.ow { color: #f92672 }
-.w  { color: #f8f8f2 }
-.mf { color: #ae81ff }
-.mh { color: #ae81ff }
-.mi { color: #ae81ff }
-.mo { color: #ae81ff }
-.sb { color: #e6db74 }
-.sc { color: #e6db74 }
-.sd { color: #e6db74 }
-.s2 { color: #e6db74 }
-.se { color: #ae81ff }
-.sh { color: #e6db74 }
-.si { color: #e6db74 }
-.sx { color: #e6db74 }
-.sr { color: #e6db74 }
-.s1 { color: #e6db74 }
-.ss { color: #e6db74 }
-.bp { color: #f8f8f2 }
-.vc { color: #f8f8f2 }
-.vg { color: #f8f8f2 }
-.vi { color: #f8f8f2 }
-.il { color: #ae81ff }
-
-/* ===== 复制按钮（代码块） ===== */
-.copy-code-btn {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  background: rgba(255,255,255,.12);
-  color: #cdd6f4;
-  border: 1px solid rgba(255,255,255,.2);
-  border-radius: 4px;
-  padding: 2px 8px;
-  font-size: .78em;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity .2s, background .2s;
-  z-index: 10;
-  user-select: none;
-}
-#doc-content pre:hover .copy-code-btn { opacity: 1; }
-.copy-code-btn:hover { background: rgba(255,255,255,.25); }
-
-/* ===== 全文复制按钮 ===== */
-#copy-all-btn {
-  position: fixed;
-  top: 20px;
-  right: 28px;
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 7px 16px;
-  font-size: .88em;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(37,99,235,.35);
-  transition: background .2s;
-  z-index: 100;
-}
-#copy-all-btn:hover { background: #1d4ed8; }
-
-/* ===== 复制提示浮层 ===== */
-#copy-toast {
-  position: fixed;
-  bottom: 36px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1e2a3e;
-  color: #e2e8f0;
-  padding: 10px 24px;
-  border-radius: 24px;
-  font-size: .9em;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .3s;
-  z-index: 200;
-}
-#copy-toast.show { opacity: 1; }
-
-/* ===== 页脚 ===== */
-#doc-footer {
-  text-align: center;
-  margin-top: 48px;
-  color: #94a3b8;
-  font-size: .85em;
-  border-top: 1px solid #e2e8f0;
-  padding-top: 20px;
-}
-
-/* ===== 响应式 ===== */
-@media (max-width: 720px) {
-  #doc-wrap { padding: 24px 18px 36px; }
-  #copy-all-btn { top: 10px; right: 12px; padding: 5px 10px; font-size: .8em; }
-}
+pre { background: #1e1e1e; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 1em 0; }
+pre code { color: #abb2bf; font-family: "Cascadia Code", "Fira Code", Consolas, monospace; font-size: 0.9em; line-height: 1.5; }
+#doc-content code:not(pre code) { background: #f0f4f8 !important; color: #c7254e !important; padding: 2px 6px; border-radius: 3px; font-family: Consolas, monospace; font-size: 0.9em; }
+table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+th, td { border: 1px solid #e2e8f0; padding: 10px 14px; text-align: left; }
+th { background: #f6f8fa; font-weight: 600; color: #2d3748; }
+tr:nth-child(even) { background: #fafbfc; }
+blockquote { border-left: 4px solid #3182ce; padding: 0.5em 1em; margin: 1em 0; background: #f0f7ff; color: #4a5568; }
+ul, ol { padding-left: 2em; margin: 0.6em 0; }
+li { margin: 0.3em 0; }
+hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
+.copy-btn { position: fixed; top: 16px; right: 24px; padding: 8px 20px; background: #3182ce; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 1000; }
+.copy-btn:hover { background: #2b6cb0; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #2d3748; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.code-block-wrapper { position: relative; }
+.code-copy-btn { position: absolute; top: 8px; right: 8px; padding: 4px 10px; background: rgba(255,255,255,0.12); color: #abb2bf; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; cursor: pointer; font-size: 12px; }
+.code-copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+.footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; color: #a0aec0; font-size: 0.9em; text-align: center; }
+@media (max-width: 768px) { #doc-content { padding: 20px 12px; } pre { padding: 12px; font-size: 0.8em; } }
 </style>
 </head>
 <body>
+<button class="copy-btn" onclick="copyFullText()">📋 Copy</button>
+<div id="toast" class="toast"></div>
+<div id="doc-content">
+<h1>CetCryptoToolkit</h1>
 
-<button id="copy-all-btn" onclick="copyAll()">Copy</button>
-<div id="copy-toast"></div>
-
-<div id="doc-wrap">
-  <div id="doc-content">
-<h1 id="cetcryptotoolkit">CetCryptoToolkit</h1>
 <blockquote>
-<p>作者：CetXiyuan（璟·汐源忆醉）| 版本：v2.3.1 | 平台：Windows | Qt 5.15.2 (MinGW, 32-bit) | OpenSSL 3.x</p>
+<p>作者：CetXiyuan（璟·汐源忆醉）| 版本：v2.5.0 | 平台：Windows | Qt 5.15.2 (MinGW, 32-bit) | OpenSSL 3.x</p>
 </blockquote>
+
 <p>CetCryptoToolkit 是一款面向开发者和安全工程师的<strong>密码学工具箱</strong>桌面应用程序，集成了 PKI 证书管理、非对称加密/签名、对称加密、国密算法（SM2/SM3/SM4）等常用密码学操作。</p>
-<hr />
-<h2 id="_1">功能特性</h2>
-<h3 id="pki">🔐 证书管理（PKI）</h3>
+
+<hr>
+
+<h2>功能特性</h2>
+
+<h3>🔐 证书管理（PKI）</h3>
 <ul>
 <li>支持三级 PKI 体系：一级根证书 → 二级根证书 → 终端证书</li>
 <li>支持 RSA / EC / SM2 密钥算法</li>
-<li>自动生成 <code>.key</code> / <code>.pub</code> / <code>.csr</code> / <code>.crt</code> / <code>.der</code> / <code>.p7b</code> / <code>.pfx</code> 全套文件</li>
+<li>自动生成 `.key` / `.pub` / `.csr` / `.crt` / `.der` / `.p7b` / `.pfx` 全套文件</li>
 <li>支持自定义 SubjectDN、有效期、证书扩展字段（SAN 等）</li>
 </ul>
-<h3 id="aea">🔑 非对称加密（AEA）</h3>
+
+<h3>🔑 非对称加密（AEA）</h3>
 <ul>
 <li>RSA / EC / SM2 公钥加密 / 私钥解密</li>
 <li>11 种摘要算法：MD5 / SHA1 / SHA224 / SHA256 / SHA384 / SHA512 / SHA3-224 / SHA3-256 / SHA3-384 / SHA3-512 / SM3</li>
 <li>数字签名与验签（含 SM2 ZA 值 userId 支持）</li>
 </ul>
-<h3 id="sea">🔒 对称加密（SEA）</h3>
+
+<h3>🔒 对称加密（SEA）</h3>
 <ul>
 <li>AES：128 / 192 / 256-bit，支持 ECB / CBC / GCM / CTR 模式</li>
-<li>SM4：128-bit，支持 ECB / CBC / GCM / CTR 模式</li>
+<li>SM4：128-bit，支持 ECB / CBC 模式（GCM / CTR 暂不支持）</li>
 <li>AES-128-CMAC 消息认证码计算</li>
 <li>支持文件加解密和 Hex / Base64 格式输入输出</li>
 </ul>
-<hr />
-<h2 id="_2">快速开始</h2>
-<h3 id="_3">环境要求</h3>
+
+<hr>
+
+<h2>快速开始</h2>
+
+<h3>环境要求</h3>
 <ul>
 <li>Qt 5.15.2 (MinGW 32-bit)</li>
-<li>OpenSSL 3.x（已预置在 <code>libs/</code> 目录）</li>
+<li>OpenSSL 3.x（已预置在 `libs/` 目录）</li>
 </ul>
-<h3 id="_4">构建</h3>
-<div class="codehilite"><pre><span></span><code><span class="c1"># qmake 构建（推荐）</span>
-<span class="nb">cd</span><span class="w"> </span>CetCryptoToolkit
-qmake<span class="w"> </span>CetCryptoToolkit.pro
-mingw32-make<span class="w"> </span>-j4
 
-<span class="c1"># CMake 构建（备选）</span>
-cmake<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-S<span class="w"> </span>CetCryptoToolkit
-cmake<span class="w"> </span>--build<span class="w"> </span>build
-</code></pre></div>
+<h3>构建</h3>
 
-<h3 id="_5">运行时依赖</h3>
-<p>将以下 DLL 放置在可执行文件同目录：<br />
-- <code>libcrypto-3.dll</code> / <code>libssl-3.dll</code>（OpenSSL 3.x，已在 <code>libs/</code>）<br />
-- Qt 运行时 DLL（通过 <code>windeployqt</code> 部署）</p>
-<hr />
-<h2 id="_6">项目结构</h2>
-<div class="codehilite"><pre><span></span><code>CetCryptoToolkit/
-├── main.cpp
-├── version.h                    # 版本号统一定义
-├── mainwindow/                  # 主窗口
-├── modules/
-│   ├── opensslhelper/           # OpenSSL 封装核心
-│   └── certificatemanager/      # 证书管理模块
-├── interfaces/                  # Qt 插件接口定义
-└── libs/                        # 预编译 DLL
-</code></pre></div>
+<div class="code-block-wrapper"><pre><code class="language-bash"># qmake 构建（推荐）
+<p>cd CetCryptoToolkit</p>
+<p>qmake CetCryptoToolkit.pro</p>
+<p>mingw32-make -j4</p>
 
-<hr />
-<h2 id="_7">快捷键</h2>
+<h1>CMake 构建（备选）</h1>
+<p>cmake -B build -S CetCryptoToolkit</p>
+<p>cmake --build build</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>运行时依赖</h3>
+<p>将以下 DLL 放置在可执行文件同目录：</p>
+<ul>
+<li>`libcrypto-3.dll` / `libssl-3.dll`（OpenSSL 3.x，已在 `libs/`）</li>
+<li>Qt 运行时 DLL（通过 `windeployqt` 部署）</li>
+</ul>
+
+<hr>
+
+<h2>项目结构</h2>
+
+<div class="code-block-wrapper"><pre><code>CetCryptoToolkit/
+<p>├── main.cpp</p>
+<p>├── version.h                    # 版本号统一定义</p>
+<p>├── mainwindow/                  # 主窗口 + CetToolPluginContext</p>
+<p>├── modules/</p>
+<p>│   ├── opensslhelper/           # OpenSSL 封装核心</p>
+<p>│   └── certificatemanager/      # 证书管理模块</p>
+<p>├── interfaces/                  # Qt 插件接口定义</p>
+<p>└── libs/                        # 预编译 DLL</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>插件系统</h2>
+
+<p>v2.5.0 引入 <code>CetToolPluginContext</code> 统一管理插件加载，支持 DLL 完整性校验（SHA256），防止插件被替换。</p>
+
 <table>
+<tr><td>插件</td><td>功能</td></tr>
 <thead>
-<tr>
-<th>快捷键</th>
-<th>功能</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>F2</code></td>
-<td>打开当前工作目录</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="_8">版权</h2>
+</thead><tbody>
+<tr><td>CetLicensePlugin</td><td>许可验证（支持 Ed25519 签名、临时授权）</td></tr>
+<tr><td>CetUpdatePlugin</td><td>软件更新检查</td></tr>
+<tr><td>CetLogManagerPlugin</td><td>日志管理</td></tr>
+<tr><td>CetProgressPlugin</td><td>进度显示</td></tr>
+<tr><td>CetCANPlugin</td><td>CAN 总线通信</td></tr>
+</tbody></table>
+
+<h2>快捷键</h2>
+
+<table>
+<tr><td>快捷键</td><td>功能</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`F2`</td><td>打开当前工作目录</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2>版权</h2>
+
 <p>Copyright 2008-2035 The CetXiyuan Ltd. All rights reserved.</p>
+
 <p>网站：https://www.cetxiyuan.com/</p>
-  </div>
-  <div id="doc-footer">📄 文档转换 · 笔名 CetXiyuan</div>
 </div>
-
+<div class="footer"><p>📄 文档转换 · 笔名 CetXiyuan</p></div>
 <script>
-// ---- 全文复制 ----
-function copyAll() {
-  const el = document.getElementById('doc-content');
-  // 递归提取文本，保留换行结构
-  function extractText(node) {
-    if (node.nodeType === Node.TEXT_NODE) return node.textContent;
-    const tag = node.tagName ? node.tagName.toLowerCase() : '';
-    if (tag === 'button') return '';
-    let text = '';
-    for (const child of node.childNodes) text += extractText(child);
-    if (['p','h1','h2','h3','h4','h5','h6','li','tr','pre','blockquote','div'].includes(tag))
-      text = text.trimEnd() + '\n';
-    if (['h1','h2','h3'].includes(tag)) text += '\n';
-    return text;
-  }
-  const raw = extractText(el).replace(/\n{3,}/g, '\n\n').trim();
-  navigator.clipboard.writeText(raw).then(() => toast('✅ 已复制全文'));
-}
+hljs.highlightAll();
 
-// ---- 代码块复制 ----
-document.querySelectorAll('#doc-content pre').forEach(pre => {
-  const btn = document.createElement('button');
-  btn.className = 'copy-code-btn';
-  btn.textContent = '📋 复制';
-  btn.onclick = () => {
-    const code = pre.querySelector('code');
-    navigator.clipboard.writeText(code ? code.innerText : pre.innerText)
-      .then(() => toast('✅ 已复制代码'));
-  };
-  pre.style.position = 'relative';
-  pre.appendChild(btn);
-});
+function copyFullText() {{
+    var content = document.getElementById("doc-content");
+    var text = content.innerText || content.textContent;
+    navigator.clipboard.writeText(text).then(function() {{
+        showToast("✅ 已复制全文");
+    }});
+}}
 
-// ---- 提示浮层 ----
-function toast(msg) {
-  const el = document.getElementById('copy-toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2000);
-}
+function copyCodeBlock(btn) {{
+    var code = btn.parentElement.querySelector("code").textContent;
+    navigator.clipboard.writeText(code).then(function() {{
+        showToast("✅ 已复制代码");
+    }});
+}}
+
+function showToast(msg) {{
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(function() {{
+        t.classList.remove("show");
+    }}, 2000);
+}}
 </script>
 </body>
 </html>

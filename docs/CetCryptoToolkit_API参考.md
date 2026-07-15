@@ -1,6 +1,6 @@
 # CetCryptoToolkit API 参考
 
-> 适用版本：CetCryptoToolkit v2.4.0
+> 适用版本：CetCryptoToolkit v2.5.0
 > 核心类：`OpenSSLHelper`
 > 文件：`modules/opensslhelper/opensslhelper.h/cpp`
 
@@ -16,13 +16,13 @@
 #define PRODUCT_ICON            "favorite.ico"
 
 #define VER_MAJOR               2       // 主版本号
-#define VER_MINOR               4       // 次版本号
+#define VER_MINOR               5       // 次版本号
 #define VER_MICRO               0       // 小版本号
 
-#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK240.G631)"
-// G631: G=2026年, 6=6月, 31=25日 (31-6=25), 即2026-06-25
+#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK250.G716)"
+// G716: G=2026年, 7=7月, 16=9日 (16-7=9), 即2026-07-09
 
-#define PATCH_PACKET            "5251"  // 月+日+序号（开发版使用）
+#define PATCH_PACKET            "7152"  // 月+日+序号（开发版使用）
 #define COMPANY_NAME            "CetXiyuan"
 ```
 
@@ -34,7 +34,7 @@
 #define DIRECT_STRING(major, minor, micro)  __STR(major) __STR(minor) __STR(micro)
 
 #if (IS_RELEASE_VERSION > 0)
-#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO)  // "2.4.0"
+#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO)  // "2.5.0"
 #else
 #define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO) "." PATCH_PACKET
 #endif
@@ -390,12 +390,26 @@ QByteArray getData(bool isFile, const QString &fileName, bool inBase64 = false);
 // 统一数据入口：文件→QFile::readAll() | 文本→fromHex() | Base64→fromBase64()
 ```
 
-### 4.2 插件加载
+### 4.2 插件管理（CetToolPluginContext）
+
+v2.5.0 起，插件加载由 `CetToolPluginContext` 统一管理：
 
 ```cpp
-QObject *loadPlugin(const QString &dllName);
-// 从 D:/Program Files (x86)/CetXiyuan/CetToolDLLs/plugins/ 或 ./plugins/ 加载
+// mainwindow.h
+CetToolPluginContext *const m_toolPluginCtx;
 ```
+
+```cpp
+// mainwindow.cpp 构造函数初始化列表
+m_toolPluginCtx(new CetToolPluginContext(HASH_CetProductWizard_DLL, this))
+
+// 构造函数体中调用
+m_toolPluginCtx->initFeatures(ui->logManagerMenu, ui->licenseMenu,
+    PRODUCT_NAME, tr(CETCRYPTOTOOLKIT_VERSION), APP_NAME, APP_VERSION);
+// 可选传入 std::function<void(bool)> 回调处理激活结果
+```
+
+通过 `m_toolPluginCtx->license()` / `m_toolPluginCtx->updater()` 等访问器获取插件接口。
 
 ### 4.3 重要属性
 
@@ -403,14 +417,65 @@ QObject *loadPlugin(const QString &dllName);
 |------|------|------|
 | `m_openSSLHelper` | `OpenSSLHelper *const` | 密码学核心 |
 | `m_certManager` | `CertificateManager *const` | 证书管理对话框 |
+| `m_toolPluginCtx` | `CetToolPluginContext *const` | 插件统一管理（v2.5.0） |
 | `m_privateKey` / `m_publicKey` | `QSslKey` | 非对称加解密密钥 |
-| `m_cetLicenseInterface` | `CetLicenseInterface *` | 许可插件（可选） |
-| `m_cetUpdateInterface` | `CetUpdateInterface *` | 更新插件（可选） |
 | `m_settings` | `QSettings *const` | INI 配置（UTF-8） |
 
 ---
 
-## 5. 插件接口
+## 5. CetToolPluginContext
+
+**文件**：`mainwindow/cettoolplugincontext.h`
+**继承**：`QWidget`
+**v2.5.0 新增**
+
+统一管理所有功能插件的加载、完整性校验和生命周期。
+
+### 5.1 构造与初始化
+
+```cpp
+explicit CetToolPluginContext(const QString &selfHash, QWidget *parent = nullptr);
+// selfHash: CetProductWizard.dll 的 SHA256 哈希，用于运行时完整性校验
+
+void initFeatures(QMenu *logManagerMenu,
+                  QMenu *licenseMenu,
+                  const QString &productName,
+                  const QString &versionTitle,
+                  const QString &appName,
+                  const QString &appVersion,
+                  std::function<void(bool activated)> onActivated = nullptr);
+// 一次性初始化所有功能插件，连接菜单和信号
+```
+
+### 5.2 接口访问器
+
+```cpp
+CetLogManagerInterface *logManager() const;
+CetLicenseInterface   *license()   const;
+CetUpdateInterface    *updater()   const;
+CetProgressInterface  *progress()  const;
+```
+
+### 5.3 带校验的插件加载
+
+```cpp
+QObject *loadPlugin(const QString &dllName, QString *errInfo = nullptr);
+// 加载 DLL 前先验证 DLL 文件哈希是否与编译时记录一致
+// 校验失败返回 nullptr，errInfo 包含错误描述
+```
+
+### 5.4 完整性校验（私有）
+
+```cpp
+// private static — 由构造和 loadPlugin 内部调用
+static bool selfIntegrityCheck(const QString &expectedHash);
+// 运行时计算 CetProductWizard.dll 的 SHA256，与编译时哈希对比
+// 防止 DLL 被替换或篡改
+```
+
+---
+
+## 6. 插件接口
 
 ### CetLicenseInterface
 
@@ -442,7 +507,7 @@ virtual void show() = 0;  // 显示日志控制窗口
 
 ---
 
-## 6. 证书扩展字段格式
+## 7. 证书扩展字段格式
 
 每行一条，支持的关键扩展：
 
@@ -461,7 +526,7 @@ certificatePolicies=1.2.3.4
 
 ---
 
-## 7. 预定义目录
+## 8. 预定义目录
 
 ```cpp
 #define DIR_CERTS        QCoreApplication::applicationDirPath() + "/dir-certs"
@@ -471,7 +536,7 @@ certificatePolicies=1.2.3.4
 
 ---
 
-## 8. 使用示例
+## 9. 使用示例
 
 ### 8.1 RSA 密钥对 + 签名验签
 
@@ -555,9 +620,9 @@ QSslCertificate rootCert = helper.genSelfCert(
 
 ---
 
-## 9. 国密算法详细说明
+## 10. 国密算法详细说明
 
-### 9.1 概述
+### 10.1 概述
 
 国密算法是中国国家密码管理局（OSCCA）制定的密码标准，CetCryptoToolkit 通过 OpenSSL 3.x 提供完整支持：
 
@@ -567,7 +632,7 @@ QSslCertificate rootCert = helper.genSelfCert(
 | **SM3** | 摘要（哈希） | SHA-256 | — | 输出 256-bit 摘要 |
 | **SM4** | 对称加密 | AES-128 | 128-bit | 分组密码 |
 
-### 9.2 SM2 签名特殊性
+### 10.2 SM2 签名特殊性
 
 SM2 签名与 RSA/EC 的关键区别：**必须传入 `userId`**（用于计算 ZA 值）。
 
@@ -581,7 +646,7 @@ bool ok = helper.signVerify(data, signature, publicKey, "sm3", userId);
 
 > ⚠️ 与第三方系统对接时，双方必须使用相同的 `userId`，否则验签必然失败。
 
-### 9.3 SM2 签名格式转换
+### 10.3 SM2 签名格式转换
 
 SM2 签名输出为 DER 格式（首字节 `0x30`）。若收到裸格式（r||s，64字节）：
 
@@ -593,14 +658,14 @@ if (rawSign.at(0) != 0x30) {
 bool ok = helper.signVerify(data, rawSign, publicKey, "sm3", userId);
 ```
 
-### 9.4 SM2 公钥格式转换
+### 10.4 SM2 公钥格式转换
 
 ```cpp
 QByteArray rawPubKey = ...;         // 65字节（04 + X + Y）
 QByteArray derPubKey = helper.sm2PubKeyToDer(rawPubKey);
 ```
 
-### 9.5 SM4 各模式说明
+### 10.5 SM4 各模式说明
 
 > ⚠️ **SM4 当前仅支持 ECB 和 CBC 两种模式**（OpenSSL 3.x 的 SM4 实现尚不支持 GCM/CTR）。
 
@@ -613,7 +678,7 @@ QByteArray derPubKey = helper.sm2PubKeyToDer(rawPubKey);
 > 1. AES 解密时 IV 从密文前缀自动解析；SM4 密文不含 IV，解密时**必须**手动传入 IV
 > 2. SM4 不支持 GCM/CTR 模式，选择 GCM/CTR 将导致加密失败（返回空）
 
-### 9.6 SM4-CBC 示例
+### 10.6 SM4-CBC 示例
 
 ```cpp
 QByteArray key  = QByteArray::fromHex("0123456789ABCDEF0123456789ABCDEF");
@@ -627,7 +692,7 @@ QByteArray cipher = helper.sm4Encrypt(data, key, OpenSSLHelper::SYM_CBC, iv);
 QByteArray plain  = helper.sm4Decrypt(cipher, key, OpenSSLHelper::SYM_CBC, iv);
 ```
 
-### 9.7 SM3 摘要
+### 10.7 SM3 摘要
 
 与其他摘要接口完全一致：
 
@@ -636,7 +701,7 @@ QByteArray hash = helper.digest(data, "SM3");
 // 输出：32字节（256-bit），与 SHA-256 等长但算法不同
 ```
 
-### 9.8 与第三方系统对接注意事项
+### 10.8 与第三方系统对接注意事项
 
 1. **SM2 userId 必须协商一致**：建议约定为 `"1234567812345678"`（GB/T 35276 标准默认值）
 2. **SM2 签名格式确认**：部分系统使用裸格式（64字节 r||s），需调用 `sm2SignToDer()` 转换

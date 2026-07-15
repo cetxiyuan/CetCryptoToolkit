@@ -5,6 +5,46 @@
 
 ---
 
+## [2.5.0] - 2026-07-09
+
+> 重大版本：许可 3.0 + CetToolPluginContext 重构
+
+### Added
+- 引入 `CetToolPluginContext` 统一管理插件加载，支持 DLL SHA256 完整性校验
+- 许可插件支持 Ed25519 签名验证（许可 3.0）
+- 支持临时授权、停用/拒绝状态，拒绝后停止自动重试
+
+### Changed
+- 重构 MainWindow，插件相关逻辑移交 `CetToolPluginContext` 统一管理
+- 更新插件（CetUpdatePlugin）支持 2 位数版本号
+- 许可证激活定时器重构为可复用 QTimer
+- 许可周期超过 24 小时后从 10 分钟开始重置
+
+---
+
+## [2.4.0] - 2026-06-25
+
+> 许可 2.0
+
+### Changed
+- 许可插件更新至 2.0 版本
+
+### Fixed
+- 上电首次自动激活改为 30 秒延迟
+
+---
+
+## [2.3.2] - 2026-06-08
+
+### Fixed
+- 修复升级功能容易失败的问题（延长超时 10 秒、去掉 HTTP 请求超时设置）
+- 修复 `cetlicenseinterface.h` 中 `ActivateResult` 拼写错误
+
+### Changed
+- 更新 CetCANPlugin 和 CetLicensePlugin 插件
+
+---
+
 ## [2.3.1] - 2026-05-07
 
 ### Fixed

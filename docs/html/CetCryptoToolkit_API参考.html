@@ -52,7 +52,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <h1>CetCryptoToolkit API 参考</h1>
 
 <blockquote>
-<p>适用版本：CetCryptoToolkit v2.4.0</p>
+<p>适用版本：CetCryptoToolkit v2.5.0</p>
 <p>核心类：`OpenSSLHelper`</p>
 <p>文件：`modules/opensslhelper/opensslhelper.h/cpp`</p>
 </blockquote>
@@ -68,13 +68,13 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>#define PRODUCT_ICON            "favorite.ico"</p>
 
 <p>#define VER_MAJOR               2       // 主版本号</p>
-<p>#define VER_MINOR               4       // 次版本号</p>
+<p>#define VER_MINOR               5       // 次版本号</p>
 <p>#define VER_MICRO               0       // 小版本号</p>
 
-<p>#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK240.G631)"</p>
-<p>// G631: G=2026年, 6=6月, 31=25日 (31-6=25), 即2026-06-25</p>
+<p>#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK250.G716)"</p>
+<p>// G716: G=2026年, 7=7月, 16=9日 (16-7=9), 即2026-07-09</p>
 
-<p>#define PATCH_PACKET            "5251"  // 月+日+序号（开发版使用）</p>
+<p>#define PATCH_PACKET            "7152"  // 月+日+序号（开发版使用）</p>
 <p>#define COMPANY_NAME            "CetXiyuan"</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
@@ -85,7 +85,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>#define DIRECT_STRING(major, minor, micro)  __STR(major) __STR(minor) __STR(micro)</p>
 
 <p>#if (IS_RELEASE_VERSION &gt; 0)</p>
-<p>#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO)  // "2.4.0"</p>
+<p>#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO)  // "2.5.0"</p>
 <p>#else</p>
 <p>#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO) "." PATCH_PACKET</p>
 <p>#endif</p>
@@ -435,11 +435,24 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>// 统一数据入口：文件→QFile::readAll() | 文本→fromHex() | Base64→fromBase64()</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>4.2 插件加载</h3>
+<h3>4.2 插件管理（CetToolPluginContext）</h3>
 
-<div class="code-block-wrapper"><pre><code class="language-cpp">QObject *loadPlugin(const QString &amp;dllName);
-<p>// 从 D:/Program Files (x86)/CetXiyuan/CetToolDLLs/plugins/ 或 ./plugins/ 加载</code></pre></p>
+<p>v2.5.0 起，插件加载由 <code>CetToolPluginContext</code> 统一管理：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">// mainwindow.h
+<p>CetToolPluginContext *const m_toolPluginCtx;</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">// mainwindow.cpp 构造函数初始化列表
+<p>m_toolPluginCtx(new CetToolPluginContext(HASH_CetProductWizard_DLL, this))</p>
+
+<p>// 构造函数体中调用</p>
+<p>m_toolPluginCtx-&gt;initFeatures(ui-&gt;logManagerMenu, ui-&gt;licenseMenu,</p>
+<p>    PRODUCT_NAME, tr(CETCRYPTOTOOLKIT_VERSION), APP_NAME, APP_VERSION);</p>
+<p>// 可选传入 std::function&lt;void(bool)&gt; 回调处理激活结果</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<p>通过 <code>m_toolPluginCtx->license()</code> / <code>m_toolPluginCtx->updater()</code> 等访问器获取插件接口。</p>
 
 <h3>4.3 重要属性</h3>
 
@@ -449,15 +462,62 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 </thead><tbody>
 <tr><td>`m_openSSLHelper`</td><td>`OpenSSLHelper *const`</td><td>密码学核心</td></tr>
 <tr><td>`m_certManager`</td><td>`CertificateManager *const`</td><td>证书管理对话框</td></tr>
+<tr><td>`m_toolPluginCtx`</td><td>`CetToolPluginContext *const`</td><td>插件统一管理（v2.5.0）</td></tr>
 <tr><td>`m_privateKey` / `m_publicKey`</td><td>`QSslKey`</td><td>非对称加解密密钥</td></tr>
-<tr><td>`m_cetLicenseInterface`</td><td>`CetLicenseInterface *`</td><td>许可插件（可选）</td></tr>
-<tr><td>`m_cetUpdateInterface`</td><td>`CetUpdateInterface *`</td><td>更新插件（可选）</td></tr>
 <tr><td>`m_settings`</td><td>`QSettings *const`</td><td>INI 配置（UTF-8）</td></tr>
 </tbody></table>
 
 <hr>
 
-<h2>5. 插件接口</h2>
+<h2>5. CetToolPluginContext</h2>
+
+<strong>文件</strong>：<code>mainwindow/cettoolplugincontext.h</code>
+<strong>继承</strong>：<code>QWidget</code>
+<strong>v2.5.0 新增</strong>
+
+<p>统一管理所有功能插件的加载、完整性校验和生命周期。</p>
+
+<h3>5.1 构造与初始化</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">explicit CetToolPluginContext(const QString &amp;selfHash, QWidget *parent = nullptr);
+<p>// selfHash: CetProductWizard.dll 的 SHA256 哈希，用于运行时完整性校验</p>
+
+<p>void initFeatures(QMenu *logManagerMenu,</p>
+<p>                  QMenu *licenseMenu,</p>
+<p>                  const QString &amp;productName,</p>
+<p>                  const QString &amp;versionTitle,</p>
+<p>                  const QString &amp;appName,</p>
+<p>                  const QString &amp;appVersion,</p>
+<p>                  std::function&lt;void(bool activated)&gt; onActivated = nullptr);</p>
+<p>// 一次性初始化所有功能插件，连接菜单和信号</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>5.2 接口访问器</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">CetLogManagerInterface *logManager() const;
+<p>CetLicenseInterface   *license()   const;</p>
+<p>CetUpdateInterface    *updater()   const;</p>
+<p>CetProgressInterface  *progress()  const;</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>5.3 带校验的插件加载</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">QObject *loadPlugin(const QString &amp;dllName, QString *errInfo = nullptr);
+<p>// 加载 DLL 前先验证 DLL 文件哈希是否与编译时记录一致</p>
+<p>// 校验失败返回 nullptr，errInfo 包含错误描述</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>5.4 完整性校验（私有）</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">// private static — 由构造和 loadPlugin 内部调用
+<p>static bool selfIntegrityCheck(const QString &amp;expectedHash);</p>
+<p>// 运行时计算 CetProductWizard.dll 的 SHA256，与编译时哈希对比</p>
+<p>// 防止 DLL 被替换或篡改</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<hr>
+
+<h2>6. 插件接口</h2>
 
 <h3>CetLicenseInterface</h3>
 
@@ -486,7 +546,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <hr>
 
-<h2>6. 证书扩展字段格式</h2>
+<h2>7. 证书扩展字段格式</h2>
 
 <p>每行一条，支持的关键扩展：</p>
 
@@ -506,7 +566,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <hr>
 
-<h2>7. 预定义目录</h2>
+<h2>8. 预定义目录</h2>
 
 <div class="code-block-wrapper"><pre><code class="language-cpp">#define DIR_CERTS        QCoreApplication::applicationDirPath() + "/dir-certs"
 <p>#define DIR_ASYMMETRICS  QCoreApplication::applicationDirPath() + "/dir-asymmetrics"</p>
@@ -515,7 +575,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <hr>
 
-<h2>8. 使用示例</h2>
+<h2>9. 使用示例</h2>
 
 <h3>8.1 RSA 密钥对 + 签名验签</h3>
 
@@ -593,9 +653,9 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <hr>
 
-<h2>9. 国密算法详细说明</h2>
+<h2>10. 国密算法详细说明</h2>
 
-<h3>9.1 概述</h3>
+<h3>10.1 概述</h3>
 
 <p>国密算法是中国国家密码管理局（OSCCA）制定的密码标准，CetCryptoToolkit 通过 OpenSSL 3.x 提供完整支持：</p>
 
@@ -608,7 +668,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <tr><td>**SM4**</td><td>对称加密</td><td>AES-128</td><td>128-bit</td><td>分组密码</td></tr>
 </tbody></table>
 
-<h3>9.2 SM2 签名特殊性</h3>
+<h3>10.2 SM2 签名特殊性</h3>
 
 <p>SM2 签名与 RSA/EC 的关键区别：<strong>必须传入 <code>userId</code></strong>（用于计算 ZA 值）。</p>
 
@@ -623,7 +683,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>⚠️ 与第三方系统对接时，双方必须使用相同的 `userId`，否则验签必然失败。</p>
 </blockquote>
 
-<h3>9.3 SM2 签名格式转换</h3>
+<h3>10.3 SM2 签名格式转换</h3>
 
 <p>SM2 签名输出为 DER 格式（首字节 <code>0x30</code>）。若收到裸格式（r||s，64字节）：</p>
 
@@ -634,13 +694,13 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>bool ok = helper.signVerify(data, rawSign, publicKey, "sm3", userId);</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>9.4 SM2 公钥格式转换</h3>
+<h3>10.4 SM2 公钥格式转换</h3>
 
 <div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray rawPubKey = ...;         // 65字节（04 + X + Y）
 <p>QByteArray derPubKey = helper.sm2PubKeyToDer(rawPubKey);</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>9.5 SM4 各模式说明</h3>
+<h3>10.5 SM4 各模式说明</h3>
 
 <blockquote>
 <p>⚠️ **SM4 当前仅支持 ECB 和 CBC 两种模式**（OpenSSL 3.x 的 SM4 实现尚不支持 GCM/CTR）。</p>
@@ -660,7 +720,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>2. SM4 不支持 GCM/CTR 模式，选择 GCM/CTR 将导致加密失败（返回空）</p>
 </blockquote>
 
-<h3>9.6 SM4-CBC 示例</h3>
+<h3>10.6 SM4-CBC 示例</h3>
 
 <div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray key  = QByteArray::fromHex("0123456789ABCDEF0123456789ABCDEF");
 <p>QByteArray iv   = QByteArray::fromHex("00000000000000000000000000000000"); // CBC 用 16字节</p>
@@ -673,7 +733,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>QByteArray plain  = helper.sm4Decrypt(cipher, key, OpenSSLHelper::SYM_CBC, iv);</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>9.7 SM3 摘要</h3>
+<h3>10.7 SM3 摘要</h3>
 
 <p>与其他摘要接口完全一致：</p>
 
@@ -681,7 +741,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>// 输出：32字节（256-bit），与 SHA-256 等长但算法不同</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>9.8 与第三方系统对接注意事项</h3>
+<h3>10.8 与第三方系统对接注意事项</h3>
 
 <ol>
 <li>**SM2 userId 必须协商一致**：建议约定为 `"1234567812345678"`（GB/T 35276 标准默认值）</li>

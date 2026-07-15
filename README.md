@@ -1,6 +1,6 @@
 # CetCryptoToolkit
 
-> 作者：CetXiyuan（璟·汐源忆醉）| 版本：v2.3.1 | 平台：Windows | Qt 5.15.2 (MinGW, 32-bit) | OpenSSL 3.x
+> 作者：CetXiyuan（璟·汐源忆醉）| 版本：v2.5.0 | 平台：Windows | Qt 5.15.2 (MinGW, 32-bit) | OpenSSL 3.x
 
 CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具箱**桌面应用程序，集成了 PKI 证书管理、非对称加密/签名、对称加密、国密算法（SM2/SM3/SM4）等常用密码学操作。
 
@@ -21,7 +21,7 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 
 ### 🔒 对称加密（SEA）
 - AES：128 / 192 / 256-bit，支持 ECB / CBC / GCM / CTR 模式
-- SM4：128-bit，支持 ECB / CBC / GCM / CTR 模式
+- SM4：128-bit，支持 ECB / CBC 模式（GCM / CTR 暂不支持）
 - AES-128-CMAC 消息认证码计算
 - 支持文件加解密和 Hex / Base64 格式输入输出
 
@@ -59,7 +59,7 @@ cmake --build build
 CetCryptoToolkit/
 ├── main.cpp
 ├── version.h                    # 版本号统一定义
-├── mainwindow/                  # 主窗口
+├── mainwindow/                  # 主窗口 + CetToolPluginContext
 ├── modules/
 │   ├── opensslhelper/           # OpenSSL 封装核心
 │   └── certificatemanager/      # 证书管理模块
@@ -68,6 +68,18 @@ CetCryptoToolkit/
 ```
 
 ---
+
+## 插件系统
+
+v2.5.0 引入 `CetToolPluginContext` 统一管理插件加载，支持 DLL 完整性校验（SHA256），防止插件被替换。
+
+| 插件 | 功能 |
+|------|------|
+| CetLicensePlugin | 许可验证（支持 Ed25519 签名、临时授权） |
+| CetUpdatePlugin | 软件更新检查 |
+| CetLogManagerPlugin | 日志管理 |
+| CetProgressPlugin | 进度显示 |
+| CetCANPlugin | CAN 总线通信 |
 
 ## 快捷键
 

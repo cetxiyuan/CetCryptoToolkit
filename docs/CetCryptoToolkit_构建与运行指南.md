@@ -1,6 +1,6 @@
 # CetCryptoToolkit 构建与运行指南
 
-> 适用版本：CetCryptoToolkit v2.4.0
+> 适用版本：CetCryptoToolkit v2.5.0
 > 平台：Windows 7 / 10 / 11
 
 ---
@@ -82,10 +82,8 @@ CetCryptoToolkit/
 ├── libs/                         # 预编译 DLL
 │   ├── libcrypto-3.dll
 │   ├── libssl-3.dll
-│   ├── CetProductWizard.dll
-│   └── libCetProductWizard.dll.a # MinGW 导入库
+│   └── CetProductWizard.dll
 ├── include/openssl/              # OpenSSL C 头文件
-└── plugins/                      # 运行时插件目录
 ```
 
 ---
@@ -192,6 +190,9 @@ D:\Program Files (x86)\CetXiyuan\CetToolDLLs\plugins\
 | `CetLicensePlugin.dll` | CetLicenseInterface | 授权验证 |
 | `CetUpdatePlugin.dll` | CetUpdateInterface | 软件更新检查 |
 | `CetProgressPlugin.dll` | CetProgressInterface | 进度显示 |
+| `CetCANPlugin.dll` | — | CAN 总线通信 |
+
+> v2.5.0 起，许可/日志/更新/进度插件由 `CetToolPluginContext` 统一加载管理，支持 DLL SHA256 完整性校验。CetCANPlugin 独立加载。
 
 > 插件缺失时程序会弹出警告，但核心密码学功能不受影响。
 

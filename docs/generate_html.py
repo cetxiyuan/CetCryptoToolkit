@@ -301,9 +301,11 @@ def convert_md_to_html(md_text):
 
 def main():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    html_dir = os.path.join(base_dir, "docs", "html")
+    docs_dir = os.path.join(base_dir, "docs")
+    html_dir = os.path.join(docs_dir, "html")
     os.makedirs(html_dir, exist_ok=True)
 
+    # MD 文件在 docs/ 目录
     md_files = [
         "CetCryptoToolkit_架构设计.md",
         "CetCryptoToolkit_API参考.md",
@@ -312,7 +314,7 @@ def main():
     ]
 
     for md_file in md_files:
-        md_path = os.path.join(base_dir, md_file)
+        md_path = os.path.join(docs_dir, md_file)
         if not os.path.exists(md_path):
             print("SKIP: " + md_path + " not found")
             continue
@@ -323,6 +325,29 @@ def main():
         html = convert_md_to_html(md_text)
 
         html_file = md_file.replace('.md', '.html')
+        html_path = os.path.join(html_dir, html_file)
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.write(html)
+
+        print("OK: " + html_path)
+
+    # README 和 CHANGELOG 在项目根目录
+    root_md_files = [
+        ("README.md", "README.html"),
+        ("CHANGELOG.md", "CHANGELOG.html"),
+    ]
+
+    for md_file, html_file in root_md_files:
+        md_path = os.path.join(base_dir, md_file)
+        if not os.path.exists(md_path):
+            print("SKIP: " + md_path + " not found")
+            continue
+
+        with open(md_path, 'r', encoding='utf-8') as f:
+            md_text = f.read()
+
+        html = convert_md_to_html(md_text)
+
         html_path = os.path.join(html_dir, html_file)
         with open(html_path, 'w', encoding='utf-8') as f:
             f.write(html)

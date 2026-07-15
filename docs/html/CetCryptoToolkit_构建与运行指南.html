@@ -52,7 +52,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <h1>CetCryptoToolkit 构建与运行指南</h1>
 
 <blockquote>
-<p>适用版本：CetCryptoToolkit v2.4.0</p>
+<p>适用版本：CetCryptoToolkit v2.5.0</p>
 <p>平台：Windows 7 / 10 / 11</p>
 </blockquote>
 
@@ -135,10 +135,8 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>├── libs/                         # 预编译 DLL</p>
 <p>│   ├── libcrypto-3.dll</p>
 <p>│   ├── libssl-3.dll</p>
-<p>│   ├── CetProductWizard.dll</p>
-<p>│   └── libCetProductWizard.dll.a # MinGW 导入库</p>
-<p>├── include/openssl/              # OpenSSL C 头文件</p>
-<p>└── plugins/                      # 运行时插件目录</code></pre></p>
+<p>│   └── CetProductWizard.dll</p>
+<p>├── include/openssl/              # OpenSSL C 头文件</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
 <hr>
@@ -246,7 +244,12 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <tr><td>`CetLicensePlugin.dll`</td><td>CetLicenseInterface</td><td>授权验证</td></tr>
 <tr><td>`CetUpdatePlugin.dll`</td><td>CetUpdateInterface</td><td>软件更新检查</td></tr>
 <tr><td>`CetProgressPlugin.dll`</td><td>CetProgressInterface</td><td>进度显示</td></tr>
+<tr><td>`CetCANPlugin.dll`</td><td>—</td><td>CAN 总线通信</td></tr>
 </tbody></table>
+
+<blockquote>
+<p>v2.5.0 起，许可/日志/更新/进度插件由 `CetToolPluginContext` 统一加载管理，支持 DLL SHA256 完整性校验。CetCANPlugin 独立加载。</p>
+</blockquote>
 
 <blockquote>
 <p>插件缺失时程序会弹出警告，但核心密码学功能不受影响。</p>

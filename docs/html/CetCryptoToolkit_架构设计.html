@@ -53,7 +53,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <blockquote>
 <p>作者：CetXiyuan（璟·汐源忆醉）</p>
-<p>版本：v2.4.0</p>
+<p>版本：v2.5.0</p>
 <p>平台：Windows，Qt 5.15.2 (MinGW, 32-bit)，OpenSSL 3.x</p>
 </blockquote>
 
@@ -77,19 +77,26 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>┌───────────────────────────▼──────────────────────────────────┐</p>
 <p>│                    MainWindow（主窗口）                        │</p>
 <p>│  • UI 调度层，持有并协调所有功能模块                           │</p>
-<p>│  • 运行时动态加载外部插件（loadPlugin）                        │</p>
 <p>│  • 持有 OpenSSLHelper、CertificateManager 实例                │</p>
 <p>│  • 配置持久化：Configs/AppMaster.ini（QSettings）             │</p>
 <p>└─────┬────────────┬───────────────────────┬────────────────────┘</p>
 <p>      │            │                       │</p>
 <p>      ▼            ▼                       ▼</p>
 <p>┌──────────┐ ┌──────────────────┐ ┌─────────────────────────┐</p>
-<p>│OpenSSL   │ │CertificateManager│ │  插件接口层（interfaces/）│</p>
-<p>│Helper    │ │（证书管理对话框） │ │  CetLogManagerInterface  │</p>
-<p>│（核心）  │ │  调用 OpenSSL-   │ │  CetLicenseInterface     │</p>
-<p>│          │ │  Helper 完成签发 │ │  CetUpdateInterface      │</p>
-<p>└──────────┘ └──────────────────┘ │  CetProgressInterface    │</p>
-<p>                                  └─────────────────────────┘</code></pre></p>
+<p>│OpenSSL   │ │CertificateManager│ │  CetToolPluginContext   │</p>
+<p>│Helper    │ │（证书管理对话框） │ │  （插件统一管理 v2.5.0）│</p>
+<p>│（核心）  │ │  调用 OpenSSL-   │ │  • 完整性校验(SHA256)   │</p>
+<p>│          │ │  Helper 完成签发 │ │  • 插件加载与生命周期   │</p>
+<p>└──────────┘ └──────────────────┘ └──────────┬──────────────┘</p>
+<p>                                            │</p>
+<p>                    ┌────────────────────────┼────────────────────┐</p>
+<p>                    ▼                        ▼                    ▼</p>
+<p>            ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐</p>
+<p>            │ 插件接口层    │   │ 插件接口层    │   │ 插件接口层        │</p>
+<p>            │ interfaces/  │   │ interfaces/  │   │ interfaces/      │</p>
+<p>            │ License      │   │ Update       │   │ LogManager       │</p>
+<p>            │ Progress     │   │              │   │                  │</p>
+<p>            └──────────────┘   └──────────────┘   └──────────────────┘</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
 <h3>关键数据流</h3>
@@ -111,7 +118,8 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <tr><td>**业务调度层**</td><td>MainWindow 的 slot 函数，负责数据获取、调用 OpenSSLHelper、结果展示</td></tr>
 <tr><td>**密码学核心层**</td><td>OpenSSLHelper，封装 OpenSSL 3.x C API，提供统一接口</td></tr>
 <tr><td>**基础设施层**</td><td>OpenSSL 3.x 动态库、Qt 5.15.2 框架</td></tr>
-<tr><td>**插件扩展层**</td><td>通过 Qt 插件机制加载 CetProductWizard.dll，提供日志/许可/更新功能</td></tr>
+<tr><td>**插件管理层**</td><td>CetToolPluginContext（v2.5.0），统一管理插件加载、SHA256 完整性校验</td></tr>
+<tr><td>**插件扩展层**</td><td>通过 Qt 插件机制加载 CetProductWizard.dll，提供日志/许可/更新/CAN 功能</td></tr>
 </tbody></table>
 
 <hr>
@@ -178,7 +186,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <ul>
 <li>RootCA：`basicConstraints=critical,CA:TRUE,pathlen:1` + `keyUsage=keyCertSign,cRLSign`</li>
 <li>SubCA：`basicConstraints=critical,CA:TRUE,pathlen:0` + `keyUsage=keyCertSign,cRLSign`</li>
-<li>EndEntity：`basicConstraints=CA:FALSE` + `keyUsage=digitalSignature,keyEncipherment` + `extendedKeyUsage=serverAuth,clientAuth` + `subjectAltName=DNS:example.com,IP:127.0.0.1`</li>
+<li>EndEntity：`basicConstraints=CA:FALSE` + `keyUsage=digitalSignature,keyEncipherment` + `subjectKeyIdentifier=hash` + `authorityKeyIdentifier=keyid:always,issuer:always` + `extendedKeyUsage=serverAuth,clientAuth` + `subjectAltName=DNS:example.com,IP:127.0.0.1`</li>
 </ul>
 
 <strong>输出文件（以 EndEntity 为例）：</strong>
@@ -231,9 +239,20 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <hr>
 
-<h3>3.4 插件接口层（`interfaces/`）</h3>
+<h3>3.4 CetToolPluginContext（`mainwindow/cettoolplugincontext.h`）</h3>
 
-<p>采用 Qt 插件机制，主窗口在启动时从固定路径动态加载 DLL：</p>
+<strong>v2.5.0 新增</strong>，统一管理所有功能插件的加载、SHA256 完整性校验和生命周期。
+
+<ul>
+<li>**构造时**：传入 `CetProductWizard.dll` 的编译时 SHA256 哈希，运行时校验防止 DLL 被替换</li>
+<li>**`initFeatures()`**：一次性初始化所有功能插件，自动连接菜单和信号</li>
+<li>**访问器**：`logManager()` / `license()` / `updater()` / `progress()` 返回对应接口指针</li>
+<li>**`loadPlugin()`**：带完整性校验的 DLL 加载，校验失败返回 nullptr</li>
+</ul>
+
+<h3>3.5 插件接口层（`interfaces/`）</h3>
+
+<p>动态加载路径：</p>
 
 <div class="code-block-wrapper"><pre><code>优先路径：D:/Program Files (x86)/CetXiyuan/CetToolDLLs/plugins/
 <p>备用路径：./plugins/</code></pre></p>
@@ -244,9 +263,10 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <thead>
 </thead><tbody>
 <tr><td>`CetLogManagerInterface`</td><td>`CetLogManagerPlugin.dll`</td><td>日志管理窗口</td></tr>
-<tr><td>`CetLicenseInterface`</td><td>`CetLicensePlugin.dll`</td><td>授权验证</td></tr>
+<tr><td>`CetLicenseInterface`</td><td>`CetLicensePlugin.dll`</td><td>授权验证（支持 Ed25519 签名）</td></tr>
 <tr><td>`CetUpdateInterface`</td><td>`CetUpdatePlugin.dll`</td><td>软件更新检查</td></tr>
 <tr><td>`CetProgressInterface`</td><td>`CetProgressPlugin.dll`</td><td>进度显示</td></tr>
+<tr><td>—</td><td>`CetCANPlugin.dll`</td><td>CAN 总线通信</td></tr>
 </tbody></table>
 
 <blockquote>
@@ -284,8 +304,6 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <tr><td>**槽函数**</td><td>`on_seaDecryptPushButton_clicked()`</td><td>对称解密（AES/SM4）</td></tr>
 <tr><td>**槽函数**</td><td>`on_aes128cmacPushButton_clicked()`</td><td>AES-128-CMAC 计算</td></tr>
 <tr><td>**私有方法**</td><td>`getData(isFile, fileName, inBase64)`</td><td>从文件或文本获取原始数据</td></tr>
-<tr><td>**私有方法**</td><td>`loadPlugin(dllName)`</td><td>动态加载 Qt 插件 DLL</td></tr>
-<tr><td>**私有方法**</td><td>`initFeaturesPlugin()`</td><td>初始化许可/更新等插件功能</td></tr>
 </tbody></table>
 
 <strong>重要属性</strong>：
@@ -298,7 +316,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <tr><td>`m_publicKey`</td><td>`QSslKey`</td><td>当前非对称加密的公钥</td></tr>
 <tr><td>`m_openSSLHelper`</td><td>`OpenSSLHelper *const`</td><td>密码学核心层对象</td></tr>
 <tr><td>`m_certManager`</td><td>`CertificateManager *const`</td><td>证书管理对话框</td></tr>
-<tr><td>`m_cetLogManagerInterface`</td><td>`CetLogManagerInterface *`</td><td>日志管理插件接口</td></tr>
+<tr><td>`m_toolPluginCtx`</td><td>`CetToolPluginContext *const`</td><td>插件统一管理（v2.5.0）</td></tr>
 <tr><td>`m_settings`</td><td>`QSettings *const`</td><td>配置存储（Configs/AppMaster.ini，UTF-8）</td></tr>
 </tbody></table>
 
@@ -498,12 +516,16 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <div class="code-block-wrapper"><pre><code>应用启动
 <p>    │</p>
 <p>    ▼</p>
-<p>initFeaturesPlugin()</p>
+<p>CetToolPluginContext::initFeatures()</p>
 <p>    │</p>
-<p>    ├── 1. 加载 CetLicensePlugin.dll（QPluginLoader）</p>
-<p>    ├── 2. initialize(PRODUCT_NAME)</p>
-<p>    ├── 3. 上电 30 秒后首次自动激活</p>
-<p>    └── 4. 定时激活（间隔 30min→60min→120min... 翻倍递增）</code></pre></p>
+<p>    ├── 1. 自检 CetProductWizard.dll SHA256 完整性</p>
+<p>    ├── 2. 加载 CetLicensePlugin.dll（QPluginLoader）</p>
+<p>    ├── 3. initialize(PRODUCT_NAME)</p>
+<p>    ├── 4. 上电 30 秒后首次自动激活</p>
+<p>    └── 5. 定时激活（间隔 30min→60min→120min... 翻倍递增，上限 2h）</p>
+<p>         ├── 许可正常：持续定时激活</p>
+<p>         ├── 临时授权：记录状态，到期前提醒</p>
+<p>         └── 拒绝/停用：停止自动重试</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
 <hr>
@@ -518,7 +540,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 </thead><tbody>
 <tr><td>**OpenSSL**</td><td>3.x</td><td>所有密码学运算</td><td>动态链接 `libcrypto-3.dll` / `libssl-3.dll`</td></tr>
 <tr><td>**Qt**</td><td>5.15.2</td><td>GUI 框架、网络、文件操作</td><td>动态链接</td></tr>
-<tr><td>**CetProductWizard**</td><td>—</td><td>插件宿主 DLL</td><td>运行时 `QPluginLoader`</td></tr>
+<tr><td>**CetProductWizard**</td><td>—</td><td>产品向导框架 + SHA256 校验基准 DLL</td><td>编译时链接 `-lCetProductWizard`</td></tr>
 </tbody></table>
 
 <h3>6.2 Qt 模块依赖</h3>
@@ -555,15 +577,15 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <div class="code-block-wrapper"><pre><code>main.cpp
 <p>  └── mainwindow.h</p>
-<p>        ├── opensslhelper.h ────── openssl/*.h (OpenSSL C API)</p>
-<p>        ├── certificatemanager.h ── opensslhelper.h</p>
-<p>        ├── cetlogmanagerinterface.h</p>
-<p>        ├── cetlicenseinterface.h</p>
-<p>        ├── cetupdateinterface.h</p>
-<p>        └── cetprogressinterface.h</code></pre></p>
+<p>        ├── opensslhelper.h ────────── openssl/*.h (OpenSSL C API)</p>
+<p>        ├── certificatemanager.h ────── opensslhelper.h</p>
+<p>        └── cettoolplugincontext.h ──── cetlicenseinterface.h</p>
+<p>                                       cetlogmanagerinterface.h</p>
+<p>                                       cetupdateinterface.h</p>
+<p>                                       cetprogressinterface.h</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<code>CertificateManager</code> 依赖 <code>OpenSSLHelper</code>，<code>MainWindow</code> 依赖所有模块。
+<code>CertificateManager</code> 依赖 <code>OpenSSLHelper</code>，<code>CetToolPluginContext</code> 管理所有插件接口，<code>MainWindow</code> 依赖所有模块。
 
 <hr>
 
@@ -615,9 +637,9 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <h3>9.2 插件化的功能扩展</h3>
 
-<strong>决策</strong>：日志/许可/更新/进度功能通过 Qt 插件机制（<code>QPluginLoader</code>）实现。
+<strong>决策</strong>：日志/许可/更新/进度/CAN 功能通过 Qt 插件机制（<code>QPluginLoader</code>）实现，v2.5.0 引入 <code>CetToolPluginContext</code> 统一管理。
 
-<strong>理由</strong>：解耦主程序与商业功能，各模块独立开发升级。基础版/Custom 版/全功能版通过不同插件组合实现。插件缺失仅警告，不影响核心密码学功能。
+<strong>理由</strong>：解耦主程序与商业功能，各模块独立开发升级。基础版/Custom 版/全功能版通过不同插件组合实现。插件缺失仅警告，不影响核心密码学功能。<code>CetToolPluginContext</code> 提供编译时 SHA256 校验，防止插件 DLL 被替换或篡改，增强安全性。
 
 <h3>9.3 三级 PKI 证书体系</h3>
 
