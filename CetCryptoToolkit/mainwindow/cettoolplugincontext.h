@@ -10,6 +10,8 @@
 #include <QMenu>
 #include <functional>
 
+class TrialReminder;
+
 class QMainWindow;
 
 // 与 productwizard.h 保持一致的导出宏（避免重复定义）
@@ -59,6 +61,7 @@ private:
     CetLicenseInterface    *m_cetLicenseInterface    = nullptr;
     CetUpdateInterface     *m_cetUpdateInterface     = nullptr;
     CetProgressInterface   *m_cetProgressInterface   = nullptr;
+    TrialReminder          *m_trialReminder          = nullptr;
 };
 
 #endif // CETTOOLPLUGINCONTEXT_H
