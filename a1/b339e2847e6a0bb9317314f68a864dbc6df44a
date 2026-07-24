@@ -1,0 +1,19 @@
+CetCryptoToolkit/mainwindow/cettoolplugincontext.h
+  s_b6d28002f7cca6::t_c3e5f7d777e67b 13-14,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "a1b339e2847e6a0bb9317314f68a864dbc6df44a",
+  "prompts": {},
+  "sessions": {
+    "s_b6d28002f7cca6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "30163b75-cc15-420b-bde3-6afc476fe3a5",
+        "model": "deepseek-v4-pro"
+      },
+      "human_author": "cetxiyuan <zhengjianyu@yaxon.com>"
+    }
+  }
+}
