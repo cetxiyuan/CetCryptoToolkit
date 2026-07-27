@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>购买许可 - CetXiyuan工具集</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .pricing {
+            display: flex;
+            gap: 20px;
+            padding: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .price-card {
+            flex: 1;
+            min-width: 200px;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .price-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .price-card.featured {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, #f9fff9 0%, #f0fff4 100%);
+            position: relative;
+        }
+
+        .price-card.featured::before {
+            content: "🔥 推荐";
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4CAF50;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .price-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .original-price {
+            text-decoration: line-through;
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .price {
+            font-size: 36px;
+            color: #4CAF50;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+
+        .price-card ul {
+            text-align: left;
+            margin: 20px 0;
+            padding-left: 20px;
+        }
+
+        .price-card li {
+            margin: 8px 0;
+            color: #666;
+        }
+
+        .qr-section {
+            padding: 30px;
+            background: #f9f9f9;
+            text-align: center;
+        }
+
+        .qr-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 22px;
+        }
+
+        .qr-codes {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+
+        .qr-code {
+            text-align: center;
+        }
+
+        .qr-code img {
+            width: 220px;
+            height: 220px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 10px;
+            background: white;
+        }
+
+        .qr-code p {
+            margin-top: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .steps {
+            background: white;
+            padding: 30px;
+            margin: 20px 30px;
+        }
+
+        .steps h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 22px;
+            text-align: center;
+        }
+
+        .steps ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .steps li {
+            margin: 15px 0;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .steps li strong {
+            color: #333;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: "Courier New", monospace;
+        }
+
+        .faq {
+            background: #f9f9f9;
+            padding: 30px;
+        }
+
+        .faq h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 22px;
+            text-align: center;
+        }
+
+        .faq-item {
+            margin-bottom: 20px;
+        }
+
+        .faq-item h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .faq-item p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            background: #f9f9f9;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .highlight {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>🎉 首发优惠价（仅限前100名）</h1>
+            <p>感谢使用 CetXiyuan 工具集，请酌情支持开发</p>
+        </div>
+
+        <!-- 价格卡片 -->
+        <div class="pricing">
+            <div class="price-card">
+                <h3>个人年许可</h3>
+                <p class="original-price">原价 ¥199</p>
+                <div class="price">¥69</div>
+                <ul>
+                    <li>1年完整使用</li>
+                    <li>全部8个工具</li>
+                    <li>到期后续费</li>
+                    <li>单机授权</li>
+                </ul>
+            </div>
+
+            <div class="price-card featured">
+                <h3>个人永久许可</h3>
+                <p class="original-price">原价 ¥999</p>
+                <div class="price">¥169</div>
+                <ul>
+                    <li><span class="highlight">一次购买</span></li>
+                    <li>永久使用</li>
+                    <li>全部8个工具</li>
+                    <li>免费更新</li>
+                    <li>单机授权</li>
+                </ul>
+            </div>
+
+            <div class="price-card">
+                <h3>企业年许可</h3>
+                <p class="original-price">原价 ¥1999</p>
+                <div class="price">¥399</div>
+                <ul>
+                    <li>1年完整使用</li>
+                    <li>可开发票</li>
+                    <li>含远程答疑</li>
+                    <li>优先技术支持</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 收款码 -->
+        <div class="qr-section">
+            <h2>💳 支付宝扫码支付</h2>
+            <div class="qr-codes">
+                <div class="qr-code">
+                    <img src="{REWARD_BASE64}" alt="支付宝收款码">
+                    <p>支付宝扫码支付</p>
+                </div>
+            </div>
+            <p style="margin-top: 20px; color: #999;">请扫描二维码支付，并保存支付截图</p>
+        </div>
+
+        <!-- 购买步骤 -->
+        <div class="steps">
+            <h2>📋 购买步骤</h2>
+            <ol>
+                <li><strong>扫码支付：</strong>使用支付宝扫描上方二维码，支付对应金额（请保存支付截图）</li>
+                <li><strong>获取MAC地址：</strong>在工具中查看机器MAC地址（Windows系统可在命令行输入 <code>ipconfig /all</code> 查看）</li>
+                <li><strong>发送信息：</strong>将以下信息发送到邮箱 <a href="mailto:516688603@qq.com">516688603@qq.com</a>
+                    <ul>
+                        <li>支付截图</li>
+                        <li>机器MAC地址</li>
+                        <li>许可类型（年许可/永久许可）</li>
+                        <li>产品名称（如 CetCANTestTool）</li>
+                    </ul>
+                </li>
+                <li><strong>接收许可码：</strong>24小时内收到许可码到邮箱</li>
+                <li><strong>激活使用：</strong>在工具中输入许可码激活使用</li>
+            </ol>
+        </div>
+
+        <!-- 常见问题 -->
+        <div class="faq">
+            <h2>❓ 常见问题</h2>
+
+            <div class="faq-item">
+                <h3>Q: 购买后多久生效？</h3>
+                <p>A: 24小时内发送许可码到您的邮箱，收到后即可激活使用。</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>Q: 许可支持哪些工具？</h3>
+                <p>A: 许可支持全部8个工具：CetCANTestTool、CetSScom、CetSimulateEcu、CetDiagnosticInstrument、CetNetworkTester、CetVehicleCollector、CetCryptoToolkit、CetDevelopmentKit。</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>Q: 到期后怎么办？</h3>
+                <p>A: 年许可到期后可续费，或升级到永久许可。永久许可无需续费。</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>Q: 可以换电脑使用吗？</h3>
+                <p>A: 许可与MAC地址绑定，换电脑需要重新购买或申请迁移（免费迁移1次）。</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>Q: 支持哪些操作系统？</h3>
+                <p>A: 支持 Windows 7/10/11 32位和64位系统。</p>
+            </div>
+
+            <div class="faq-item">
+                <h3>Q: 有其他支付方式吗？</h3>
+                <p>A: 目前仅支持支付宝，如需微信支付请添加微信号：m516688603</p>
+            </div>
+        </div>
+
+        <!-- 页脚 -->
+        <div class="footer">
+            <p>有问题？联系邮箱：<a href="mailto:516688603@qq.com">516688603@qq.com</a></p>
+            <p style="margin-top: 10px;">© 2026 CetXiyuan. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
