@@ -1,0 +1,23 @@
+CetCryptoToolkit-Release/LICENSE/license
+  s_72fb82aba9e8d8::t_116bd06356a9da 2-4,6
+CetCryptoToolkit-Setup/CetCryptoToolkit.iss
+  s_72fb82aba9e8d8::t_503db42bdd596c 5
+CetCryptoToolkit/version.h
+  s_72fb82aba9e8d8::t_ba19a42af37a21 13-14,22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "c8357766945409449ca49947c82fbb0bd56c0466",
+  "prompts": {},
+  "sessions": {
+    "s_72fb82aba9e8d8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a03feef9-e220-4bac-a2b6-e3c9719d0cd7",
+        "model": "glm-5.3"
+      },
+      "human_author": "cetxiyuan <zhengjianyu@yaxon.com>"
+    }
+  }
+}
