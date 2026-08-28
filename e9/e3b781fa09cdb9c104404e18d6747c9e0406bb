@@ -1,0 +1,19 @@
+CetCryptoToolkit/version.h
+  s_1b6aa5f96623ae::t_ba65e7dc5eaa56 5,25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "e9e3b781fa09cdb9c104404e18d6747c9e0406bb",
+  "prompts": {},
+  "sessions": {
+    "s_1b6aa5f96623ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1ce4b9a7-965d-4985-90cf-303c341b9a6f",
+        "model": "unknown"
+      },
+      "human_author": "cetxiyuan <zhengjianyu@yaxon.com>"
+    }
+  }
+}
