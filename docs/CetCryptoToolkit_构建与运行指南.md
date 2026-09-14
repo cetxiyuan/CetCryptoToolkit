@@ -1,6 +1,6 @@
 # CetCryptoToolkit 构建与运行指南
 
-> 适用版本：CetCryptoToolkit v2.5.0
+> 适用版本：CetCryptoToolkit v2.6.0
 > 平台：Windows 7 / 10 / 11
 
 ---
@@ -11,10 +11,10 @@
 |------|------|------|
 | **Qt** | 5.15.2 | 必须使用此版本 |
 | **编译器** | **MinGW 8.1.0 32-bit** | 必须是 32-bit，不可用 64-bit 或 MSVC |
-| **OpenSSL** | 3.x（3.0.18） | 已预置在 `libs/` 目录，无需单独安装 |
-| **CMake** | 3.16+（可选） | 使用 CMake 构建时需要 |
+| **OpenSSL** | 3.x（3.0.18） | 已预置在 `libs/` 目录（含 3.x 头文件与 `openssl.exe`），无需单独安装。`libs/` 中另有 1.1.x 系 DLL 为历史遗留，未被链接 |
+| **CMake** | 3.16+（可选） | 当前 CMakeLists.txt 不可用（见 4.3），实际用不到 |
 | **Git** | 任意版本 | 代码管理 |
-| **操作系统** | Windows 10/11 | 目标平台 |
+| **操作系统** | Windows 7 / 10 / 11 | 目标平台 |
 
 > ⚠️ **关键约束**：项目链接的 OpenSSL DLL 为 32-bit 版本，编译器必须选择 MinGW **32-bit**，否则链接时会报架构不匹配错误。
 
@@ -68,22 +68,27 @@ git checkout master
 ### 目录结构确认
 
 ```
-CetCryptoToolkit/
+CetCryptoToolkit/                  # 源码子目录（.pro 在此层，非仓库根）
 ├── main.cpp
 ├── version.h
 ├── CetCryptoToolkit.pro          # qmake 工程文件（主力）
-├── CMakeLists.txt                # CMake 工程文件（备选）
-├── app.rc                        # Windows 资源文件
+├── CMakeLists.txt                # CMake 工程文件（备选，当前不可用，见 4.3）
+├── app.rc                        # Windows 资源文件（引用 PRODUCT_ICON）
+├── favorite.ico                  # 应用图标（app.rc 依赖，缺失将导致 rc 编译失败）
+├── app_ico.ico
 ├── mainwindow/                   # 主窗口模块
 ├── modules/
 │   ├── opensslhelper/            # 密码学核心
 │   └── certificatemanager/       # 证书管理
 ├── interfaces/                   # 插件接口定义
 ├── libs/                         # 预编译 DLL
-│   ├── libcrypto-3.dll
+│   ├── libcrypto-3.dll           # OpenSSL 3.x（当前链接使用）
 │   ├── libssl-3.dll
-│   └── CetProductWizard.dll
-├── include/openssl/              # OpenSSL C 头文件
+│   ├── libcrypto-1_1.dll         # OpenSSL 1.1.x（历史遗留，未链接）
+│   ├── libssl-1_1.dll
+│   ├── openssl.exe               # 命令行工具（降级路径使用）
+│   └── CetProductWizard.dll      # 产品向导插件
+└── include/openssl/              # OpenSSL C 头文件
 ```
 
 ---
@@ -126,7 +131,11 @@ cmake -B build -S . -G "MinGW Makefiles" ^
 cmake --build build --parallel 4
 ```
 
-> **注意**：CMake 构建文件当前为 Qt Creator 自动生成的模板，未完全配置第三方库路径和插件加载逻辑，建议使用 qmake 构建。
+> **注意**：CMake 构建文件当前为 Qt Creator 自动生成的模板，**无法成功构建**：
+> - `PROJECT_SOURCES` 引用的是 `mainwindow.cpp/mainwindow.h/mainwindow.ui`，但实际文件位于 `mainwindow/` 子目录（正确路径为 `mainwindow/mainwindow.cpp` 等），配置阶段后编译必然报“找不到 mainwindow.h”
+> - 未包含 `modules/`、`interfaces/` 的源文件，也未配置 OpenSSL 头文件/库路径与插件链接
+>
+> qmake 是唯一的可用构建方式。
 
 ---
 
@@ -139,19 +148,20 @@ cmake --build build --parallel 4
 ### 5.2 部署到独立目录
 
 ```bash
-# 创建发布目录
+# 创建发布目录（qmake 输出目录视构建方式而定，Qt Creator 下通常在 build-*/ 中）
 mkdir release-deploy
 cp release/CetCryptoToolkit.exe release-deploy/
 cp libs/libcrypto-3.dll release-deploy/
 cp libs/libssl-3.dll release-deploy/
+cp libs/favorite.ico release-deploy/ 2>/dev/null  # 若图标为外部加载
 
 # 使用 windeployqt 自动部署 Qt 运行时
 cd release-deploy
 windeployqt CetCryptoToolkit.exe
 
-# 手动复制插件 DLL（可选）
+# 复制产品插件（源码树中无 plugins/ 目录，DLL 来自 libs/）
 mkdir plugins
-cp ../plugins/*.dll plugins/
+cp ../libs/CetProductWizard.dll plugins/
 ```
 
 完整运行时目录结构：
@@ -190,9 +200,9 @@ D:\Program Files (x86)\CetXiyuan\CetToolDLLs\plugins\
 | `CetLicensePlugin.dll` | CetLicenseInterface | 授权验证 |
 | `CetUpdatePlugin.dll` | CetUpdateInterface | 软件更新检查 |
 | `CetProgressPlugin.dll` | CetProgressInterface | 进度显示 |
-| `CetCANPlugin.dll` | — | CAN 总线通信 |
+| `CetCANPlugin.dll` | — | CAN 总线通信（主程序当前无加载代码） |
 
-> v2.5.0 起，许可/日志/更新/进度插件由 `CetToolPluginContext` 统一加载管理，支持 DLL SHA256 完整性校验。CetCANPlugin 独立加载。
+> v2.5.0 起，许可/日志/更新/进度四个插件由 `CetToolPluginContext::initFeatures()` 统一加载管理，支持 DLL SHA256 完整性校验。主程序当前不加载 `CetCANPlugin.dll`。
 
 > 插件缺失时程序会弹出警告，但核心密码学功能不受影响。
 
@@ -219,7 +229,7 @@ D:\Program Files (x86)\CetXiyuan\CetToolDLLs\plugins\
 | "无法找到 libcrypto-3.dll" | 不在 PATH 中 | 复制 `libs/libcrypto-3.dll` 和 `libs/libssl-3.dll` 到 exe 同目录 |
 | "缺少 Qt5Core.dll" | Qt DLL 不在 PATH | 运行 `windeployqt` 或添加 Qt bin 目录到 PATH |
 | SM2/SM4/SM3 不可用 | OpenSSL 版本不对 | 确认使用 OpenSSL 3.x（非 1.x） |
-| 界面中文显示乱码 | 编码问题 | 已设置 UTF-8 编码，若仍乱码检查源文件编码 |
+| 界面中文显示乱码 | 编码问题 | `main.cpp` 已调用 `QTextCodec::setCodecForLocale(codecForLocale())`，若仍乱码检查源文件编码 |
 
 ### Qt Creator 问题
 
@@ -244,5 +254,5 @@ D:\Program Files (x86)\CetXiyuan\CetToolDLLs\plugins\
 - 按 **F2** 可快速打开程序工作目录，方便查看生成的证书文件
 - 证书输出目录：`<工作目录>/dir-certs/`
 - 配置文件：`<工作目录>/Configs/AppMaster.ini`
-- 启动时日志会输出 SM2/SM3/SM4/CMAC 是否可用
-- 证书生成调试：设置 `USE_OPENSSL_TOOL_HANDLER=1` 切换到命令行模式对比结果
+- 各功能区按钮的加解密/摘要入参与结果会通过 `qDebug()` 输出，便于对照排查
+- 证书生成调试：将 `modules/certificatemanager/certificatemanager.h` 中的 `#define USE_OPENSSL_TOOL_HANDLER (0)` 改为 `(1)` 切换到 openssl.exe 命令行模式对比结果（**编译期宏，改环境变量无效，必须重新编译**）

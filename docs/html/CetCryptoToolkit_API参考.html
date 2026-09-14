@@ -52,7 +52,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <h1>CetCryptoToolkit API 参考</h1>
 
 <blockquote>
-<p>适用版本：CetCryptoToolkit v2.5.0</p>
+<p>适用版本：CetCryptoToolkit v2.6.0</p>
 <p>核心类：`OpenSSLHelper`</p>
 <p>文件：`modules/opensslhelper/opensslhelper.h/cpp`</p>
 </blockquote>
@@ -63,18 +63,18 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <h3>1.1 版本信息</h3>
 
-<div class="code-block-wrapper"><pre><code class="language-cpp">#define IS_RELEASE_VERSION      ( 1 )   // 正式版=1，开发版=0
+<div class="code-block-wrapper"><pre><code class="language-cpp">#define IS_RELEASE_VERSION      ( 0 )   // 正式版=1，开发版=0（当前仓库为开发版）
 <p>#define APP_NAME                "CetCryptoToolkit"</p>
 <p>#define PRODUCT_ICON            "favorite.ico"</p>
 
 <p>#define VER_MAJOR               2       // 主版本号</p>
-<p>#define VER_MINOR               5       // 次版本号</p>
+<p>#define VER_MINOR               6       // 次版本号</p>
 <p>#define VER_MICRO               0       // 小版本号</p>
 
-<p>#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK250.G716)"</p>
-<p>// G716: G=2026年, 7=7月, 16=9日 (16-7=9), 即2026-07-09</p>
+<p>#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK260.G832)"</p>
+<p>// G832: G=2026年, 8=8月, 32=24日 (32-8=24), 即2026-08-24</p>
 
-<p>#define PATCH_PACKET            "7152"  // 月+日+序号（开发版使用）</p>
+<p>#define PATCH_PACKET            "8281"  // 月+日+序号（开发版使用）</p>
 <p>#define COMPANY_NAME            "CetXiyuan"</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
@@ -83,12 +83,22 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <div class="code-block-wrapper"><pre><code class="language-cpp">#define VERSION_CHECK(major, minor, micro)  (((major)&lt;&lt;16)|((minor)&lt;&lt;8)|((micro)&lt;&lt;0))
 <p>#define VERSION_STRING(major, minor, micro) __STR(major) "." __STR(minor) "." __STR(micro)</p>
 <p>#define DIRECT_STRING(major, minor, micro)  __STR(major) __STR(minor) __STR(micro)</p>
+<p>#define __STR(var)   #var</p>
 
 <p>#if (IS_RELEASE_VERSION &gt; 0)</p>
-<p>#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO)  // "2.5.0"</p>
+<p>#define TIP_VERSION             RELEASE_DATE</p>
+<p>#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO)  // "2.6.0"</p>
 <p>#else</p>
-<p>#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO) "." PATCH_PACKET</p>
+<p>#define TIP_VERSION             RELEASE_DATE " Patch-" PATCH_PACKET</p>
+<p>#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO) "." PATCH_PACKET  // "2.6.0.8281"</p>
 <p>#endif</p>
+
+<p>/<em> 文件/产品版本（app.rc 使用） </em>/</p>
+<p>#define FILE_VERSION            VER_MAJOR,VER_MINOR,VER_MICRO</p>
+<p>#define FILE_VERSION_STR        APP_VERSION</p>
+<p>#define PRODUCT_VERSION         FILE_VERSION</p>
+<p>#define PRODUCT_VERSION_STR     FILE_VERSION_STR</p>
+<p>#define ORIGINAL_NAME           APP_NAME ".exe"</p>
 
 <p>#define FILE_DESCRIPTION        APP_NAME " based on Qt 5.15.2 (MinGW, 32 bit)"</p>
 <p>#define LEGAL_COPYRIGHT         "Copyright 2008-2035 The " COMPANY_NAME " Ltd. All rights reserved."</p>
@@ -289,7 +299,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <h3>2.10 SM2 格式转换</h3>
 
-<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray sm2PubKeyToDer(const QByteArray &amp;rawPubKey);  // 裸公钥(65B) → DER
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray sm2PubKeyToDer(const QByteArray &amp;rawPubKey);  // 裸公钥(64B, X+Y，内部自动补 0x04 前缀) → DER
 <p>QByteArray sm2SignToDer(const QByteArray &amp;rawSignKey);   // 裸签名(r||s, 64B) → DER</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
@@ -336,7 +346,43 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>void appendError(const QString &amp;error);</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>2.14 私有辅助方法</h3>
+<blockquote>
+<p>错误队列存储于私有成员 `QList<QString> m_errors`。</p>
+</blockquote>
+
+<h3>2.14 OpenSSL 命令行工具封装（public）</h3>
+
+<p>调用外部 <code>openssl.exe</code> 的封装（<code>CertificateManager::genCertificateOpenssl()</code> 即 <code>USE_OPENSSL_TOOL_HANDLER=1</code> 调试路径依赖此组 API）：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">bool opensslGenKeyPair(const QString &amp;algorithm,  // "RSA"/"EC"
+<p>                       const QString &amp;keySize,    // RSA:2048/3072/4096, EC:256/384/521</p>
+<p>                       const QString &amp;privKeyPath,</p>
+<p>                       const QString &amp;pubKeyPath = "",</p>
+<p>                       const QString &amp;passphrase = "");</p>
+<p>bool opensslGenSelfCert(int validDays, const QString &amp;subjectDN,</p>
+<p>                        const QString &amp;keyPath, const QString &amp;outPath,</p>
+<p>                        const QString &amp;hashAlgo = "-sha256",   // 注意：实现内部自动补 "-"，实际应传 "sha256"</p>
+<p>                        const QString &amp;passphrase = "");</p>
+<p>bool opensslGenCSR(const QString &amp;subjectDN, const QString &amp;keyPath,</p>
+<p>                   const QString &amp;outPath, const QStringList &amp;extensions,</p>
+<p>                   const QString &amp;passphrase = "");</p>
+<p>bool opensslSignCSR(int validDays, const QString &amp;csrPath,</p>
+<p>                    const QString &amp;caPath, const QString &amp;caKeyPath,</p>
+<p>                    const QString &amp;outPath, const QStringList &amp;extensions,</p>
+<p>                    const QString &amp;hashAlgo = "-sha256",</p>
+<p>                    const QString &amp;passphrase = "");</p>
+<p>bool opensslGenChain(const QString &amp;subCAPath,     // 证书链 = 一级根证书 + 二级根证书</p>
+<p>                     const QString &amp;rootCAPath, const QString &amp;outPath);</p>
+<p>bool opensslToP7b(const QString &amp;chainPath, const QString &amp;outPath);</p>
+<p>bool opensslToPfx(const QString &amp;pemPath,          // PFX = 证书链 + 终端私钥 + 终端证书</p>
+<p>                  const QString &amp;pemKeyPath, const QString &amp;chainPath,</p>
+<p>                  const QString &amp;outPath, const QString &amp;passphrase = "");</p>
+<p>bool opensslToDer(const QString &amp;pemPath, const QString &amp;outPath);</p>
+<p>bool opensslTool(const QString &amp;program, const QStringList &amp;arguments);  // 通用命令行调用</p>
+<p>bool opensslTest(void);</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>2.15 私有辅助方法</h3>
 
 <table>
 <tr><td>方法</td><td>说明</td></tr>
@@ -345,10 +391,11 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <tr><td>`parseSubjectDN(subjectDN)` → `X509_NAME*`</td><td>解析 "/CN=.../O=..." 格式 DN</td></tr>
 <tr><td>`addExtensions(ca, cert, req, exts)` → `bool`</td><td>为 X509/X509_REQ 添加扩展</td></tr>
 <tr><td>`getOpenSSLError()` → `QString`</td><td>获取 OpenSSL 错误栈</td></tr>
-<tr><td>`aesCipher(mode, key)` → `const EVP_CIPHER*`</td><td>密钥长度自动选择 AES-128/192/256</td></tr>
-<tr><td>`qcertToX509(cert)` → `X509*`</td><td>QSslCertificate → X509</td></tr>
-<tr><td>`qsslkeyToEVP(key)` → `EVP_PKEY*`</td><td>QSslKey → EVP_PKEY</td></tr>
-<tr><td>`callbackPassword(...)` → `int`</td><td>PEM 密码回调</td></tr>
+<tr><td>`aesCipher(mode, key)` → `const EVP_CIPHER*`（static）</td><td>密钥长度自动选择 AES-128/192/256</td></tr>
+<tr><td>`digestFromName(name)` → `const EVP_MD*`（static）</td><td>算法名（"sha256" 等）→ EVP_MD</td></tr>
+<tr><td>`qcertToX509(cert)` → `X509*`（static）</td><td>QSslCertificate → X509</td></tr>
+<tr><td>`qsslkeyToEVP(key)` → `EVP_PKEY*`（static）</td><td>QSslKey → EVP_PKEY</td></tr>
+<tr><td>`callbackPassword(...)` → `int`（static）</td><td>PEM 密码回调</td></tr>
 </tbody></table>
 
 <hr>
@@ -419,8 +466,29 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <div class="code-block-wrapper"><pre><code class="language-cpp">#define CAROOT_DEF_COMMONNAME   "CetXiyuan Root CA Signing Authority"
 <p>#define CAROOT_CUS_COMMONNAME   "CetXiyuan Custom Root CA Signing Authority"</p>
 <p>#define CASUB_DEF_COMMONNAME    "CetXiyuan Subordinate CA Signing Authority"</p>
-<p>#define USE_OPENSSL_TOOL_HANDLER (0)  // 0=API路径, 1=openssl.exe路径</code></pre></p>
+<p>#define USE_OPENSSL_TOOL_HANDLER (0)  // 0=API路径, 1=openssl.exe路径（编译期宏，修改需重新编译）</p>
+
+<p>// 默认输出目录（应用目录下）</p>
+<p>#define CAROOT_DEF_DIR  QCoreApplication::applicationDirPath() + "/dir-certs"</p>
+<p>#define CASUB_DEF_DIR   CAROOT_DEF_DIR</p>
+
+<p>// 预定义证书扩展（RootCA/SubCA/EndEntity 各一套，内容见第 7 节）</p>
+<p>#define CAROOT_DEF_CERTEXTS ...</p>
+<p>#define CASUB_DEF_CERTEXTS ...</p>
+<p>#define ENDENTITY_DEF_CERTEXTS ...</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<h3>3.7 私有成员（摘要）</h3>
+
+<table>
+<tr><td>成员</td><td>类型</td><td>说明</td></tr>
+<thead>
+</thead><tbody>
+<tr><td>`m_openSSLHelper`</td><td>`OpenSSLHelper *const`</td><td>密码学核心（外部传入）</td></tr>
+<tr><td>`m_rootCAKeyPair` / `m_subCAKeyPair`</td><td>`QPair<QSslKey,QSslKey>`</td><td>根/二级 CA 密钥对</td></tr>
+<tr><td>`m_rootCACert` / `m_subCACert`</td><td>`QSslCertificate`</td><td>根/二级 CA 证书</td></tr>
+<tr><td>私有方法 `loadCA(cert, keyPair, dir, tier, caname)`</td><td></td><td>启动时从 dir-certs 加载已有 CA</td></tr>
+</tbody></table>
 
 <hr>
 
@@ -500,6 +568,13 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>CetProgressInterface  *progress()  const;</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
+<h3>5.2.1 试用提醒（v2.5.1 新增）</h3>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">// cettoolplugincontext.h 私有成员
+<p>TrialReminder *m_trialReminder = nullptr;</p>
+<p>// 由 CetProductWizard.dll 内部实现，提供试用期到期提醒功能</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
 <h3>5.3 带校验的插件加载</h3>
 
 <div class="code-block-wrapper"><pre><code class="language-cpp">QObject *loadPlugin(const QString &amp;dllName, QString *errInfo = nullptr);
@@ -518,6 +593,8 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <hr>
 
 <h2>6. 插件接口</h2>
+
+<p>三个接口均为<strong>普通 C++ 抽象类</strong>（非 <code>QObject</code> 派生），带虚析构与 <code>Q_DECLARE_INTERFACE</code> 导出宏，定义在 <code>interfaces/</code> 目录。</p>
 
 <h3>CetLicenseInterface</h3>
 
@@ -577,7 +654,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <h2>9. 使用示例</h2>
 
-<h3>8.1 RSA 密钥对 + 签名验签</h3>
+<h3>9.1 RSA 密钥对 + 签名验签</h3>
 
 <div class="code-block-wrapper"><pre><code class="language-cpp">OpenSSLHelper helper;
 <p>auto kp = helper.genKeyPair("RSA", "2048-bit");</p>
@@ -585,7 +662,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>bool ok = helper.signVerify("data", sig, kp.first, "sha256");</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>8.2 AES-256-GCM 加解密</h3>
+<h3>9.2 AES-256-GCM 加解密</h3>
 
 <div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray key = OpenSSLHelper::aesGenerateKey(32);
 <p>QByteArray iv  = OpenSSLHelper::aesGenerateIV(OpenSSLHelper::SYM_GCM);</p>
@@ -593,14 +670,14 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>QByteArray plain  = OpenSSLHelper::aesDecrypt(cipher, key, OpenSSLHelper::SYM_GCM);</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>8.3 SM2 签名</h3>
+<h3>9.3 SM2 签名</h3>
 
 <div class="code-block-wrapper"><pre><code class="language-cpp">auto kp = helper.genKeyPair("SM2");
 <p>QByteArray sig = helper.signData("data", kp.second, "sm3", "", "1234567812345678");</p>
 <p>bool ok = helper.signVerify("data", sig, kp.first, "sm3", "1234567812345678");</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>8.4 SM4-CBC 加解密</h3>
+<h3>9.4 SM4-CBC 加解密</h3>
 
 <div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray key  = QByteArray::fromHex("0123456789ABCDEF0123456789ABCDEF");
 <p>QByteArray iv   = QByteArray::fromHex("00000000000000000000000000000000");</p>
@@ -610,7 +687,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>QByteArray plain  = helper.sm4Decrypt(cipher, key, OpenSSLHelper::SYM_CBC, iv);</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>8.5 三级 PKI 证书生成</h3>
+<h3>9.5 三级 PKI 证书生成</h3>
 
 <div class="code-block-wrapper"><pre><code class="language-cpp">OpenSSLHelper helper;
 
@@ -640,7 +717,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>    helper.genChain(subCert, rootCert), "password");</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>8.6 SM2 证书签发</h3>
+<h3>9.6 SM2 证书签发</h3>
 
 <div class="code-block-wrapper"><pre><code class="language-cpp">QPair&lt;QSslKey, QSslKey&gt; keyPair = helper.genKeyPair("SM2");
 <p>QSslCertificate rootCert = helper.genSelfCert(</p>
@@ -696,7 +773,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <h3>10.4 SM2 公钥格式转换</h3>
 
-<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray rawPubKey = ...;         // 65字节（04 + X + Y）
+<div class="code-block-wrapper"><pre><code class="language-cpp">QByteArray rawPubKey = ...;         // 64字节（X + Y，不含 0x04 前缀，内部自动补齐）
 <p>QByteArray derPubKey = helper.sm2PubKeyToDer(rawPubKey);</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 

@@ -1,7 +1,7 @@
 # CetCryptoToolkit 架构设计
 
 > 作者：CetXiyuan（璟·汐源忆醉）
-> 版本：v2.5.0
+> 版本：v2.6.0
 > 平台：Windows，Qt 5.15.2 (MinGW, 32-bit)，OpenSSL 3.x
 
 ---
@@ -66,7 +66,7 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 | **密码学核心层** | OpenSSLHelper，封装 OpenSSL 3.x C API，提供统一接口 |
 | **基础设施层** | OpenSSL 3.x 动态库、Qt 5.15.2 框架 |
 | **插件管理层** | CetToolPluginContext（v2.5.0），统一管理插件加载、SHA256 完整性校验 |
-| **插件扩展层** | 通过 Qt 插件机制加载 CetProductWizard.dll，提供日志/许可/更新/CAN 功能 |
+| **插件扩展层** | 通过 Qt 插件机制加载 CetProductWizard.dll，提供日志/许可/更新/进度功能（CAN 插件存在于插件目录，主程序未加载） |
 
 ---
 
@@ -101,7 +101,7 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 **openssl.exe 备用路径**：以 `openssl` 前缀命名的方法族（`opensslGenKeyPair` 等）通过 PowerShell 调用系统的 `openssl.exe`（`opensslGenChain` 直接使用 PowerShell `Get-Content`），由宏 `USE_OPENSSL_TOOL_HANDLER=0/1` 控制是否启用。注意：
 - `opensslGenKeyPair` **仅支持 RSA 和 EC**，不支持 SM2
 - `opensslGenSelfCert` 硬编码了 CA 扩展字段（`pathlen:1`），不支持自定义扩展
-- `opensslGenSelfCert` 的 `hashAlgo` 参数格式为 `-sha256`（带前导短横线），与 API 路径的 `sha256` 格式不同
+- `opensslGenSelfCert` 的 `hashAlgo` 参数：实现内部会自动加前导短横线（`"-%1"`），因此实际应传 `sha256`（不带横线），否则拼出 `--sha256` 无效；形参默认值写作 `"-sha256"` 系历史遗留
 
 ---
 
@@ -118,10 +118,10 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 | `CERT_SubordinateCA` | 二级根证书 | 0 | RootCA 签发 |
 | `CERT_EndEntity` | 终端证书 | — | SubCA 签发 |
 
-**默认扩展字段：**
-- RootCA：`basicConstraints=critical,CA:TRUE,pathlen:1` + `keyUsage=keyCertSign,cRLSign`
-- SubCA：`basicConstraints=critical,CA:TRUE,pathlen:0` + `keyUsage=keyCertSign,cRLSign`
-- EndEntity：`basicConstraints=CA:FALSE` + `keyUsage=digitalSignature,keyEncipherment` + `subjectKeyIdentifier=hash` + `authorityKeyIdentifier=keyid:always,issuer:always` + `extendedKeyUsage=serverAuth,clientAuth` + `subjectAltName=DNS:example.com,IP:127.0.0.1`
+**默认扩展字段**（`CAROOT_DEF_CERTEXTS` / `CASUB_DEF_CERTEXTS` / `ENDENTITY_DEF_CERTEXTS` 宏，certificatemanager.h）：
+- RootCA：`basicConstraints=critical,CA:TRUE,pathlen:1` + `keyUsage=critical,keyCertSign,cRLSign` + `subjectKeyIdentifier=hash` + `authorityKeyIdentifier=keyid:always,issuer:always`
+- SubCA：`basicConstraints=critical,CA:TRUE,pathlen:0` + `keyUsage=critical,keyCertSign,cRLSign` + `subjectKeyIdentifier=hash` + `authorityKeyIdentifier=keyid:always,issuer:always`
+- EndEntity：`basicConstraints=critical,CA:FALSE` + `keyUsage=digitalSignature,keyEncipherment` + `subjectKeyIdentifier=hash` + `authorityKeyIdentifier=keyid:always,issuer:always` + `extendedKeyUsage=serverAuth,clientAuth` + `subjectAltName=DNS:example.com,IP:127.0.0.1`
 
 **输出文件（以 EndEntity 为例）：**
 
@@ -134,7 +134,7 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 | `<name>.crt.der` | DER | 证书（二进制） |
 | `ca-chain-<name>.pem` | PEM | 证书链（SubCA+RootCA） |
 | `ca-chain-<name>.p7b` | PKCS#7 | 证书链（Windows 可双击导入） |
-| `full-bundle-<name>.pfx` | PKCS#12 | 证书+私钥+证书链（默认密码 `pfxpassword`） |
+| `full-bundle-<name>.pfx` | PKCS#12 | 证书+私钥+证书链（UI 默认密码 `123456`，可在界面修改） |
 
 ---
 
@@ -171,7 +171,8 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 - **构造时**：传入 `CetProductWizard.dll` 的编译时 SHA256 哈希，运行时校验防止 DLL 被替换
 - **`initFeatures()`**：一次性初始化所有功能插件，自动连接菜单和信号
 - **访问器**：`logManager()` / `license()` / `updater()` / `progress()` 返回对应接口指针
-- **`loadPlugin()`**：带完整性校验的 DLL 加载，校验失败返回 nullptr
+- **`loadPlugin()`**：带完整性校验的 DLL 加载，校验失败返回 nullptr；加载失败时返回 `QPluginLoader` 详细错误（v2.6.0 改进，避免误报为缺少插件本身）
+- **试用提醒**（v2.5.1 新增）：内部持有 `TrialReminder`（由 CetProductWizard.dll 提供），支持试用期到期提醒。注意：`CetToolPluginContext` 的实现编译于外部库 `CetToolDLLs/CetToolLibs/CetProductWizard/`（mainwindow/ 下仅保留头文件，通过 `-lCetProductWizard` 链接）
 
 ### 3.5 插件接口层（`interfaces/`）
 
@@ -185,7 +186,7 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 | 接口 | DLL | 功能 |
 |------|-----|------|
 | `CetLogManagerInterface` | `CetLogManagerPlugin.dll` | 日志管理窗口 |
-| `CetLicenseInterface` | `CetLicensePlugin.dll` | 授权验证（支持 Ed25519 签名） |
+| `CetLicenseInterface` | `CetLicensePlugin.dll` | 授权验证（签名算法由插件内部实现，源码不在本仓库） |
 | `CetUpdateInterface` | `CetUpdatePlugin.dll` | 软件更新检查 |
 | `CetProgressInterface` | `CetProgressPlugin.dll` | 进度显示 |
 | — | `CetCANPlugin.dll` | CAN 总线通信 |
@@ -206,21 +207,32 @@ CetCryptoToolkit 是一款面向开发者和安全工程师的**密码学工具�
 
 | 类型 | 成员 | 说明 |
 |------|------|------|
-| **构造** | `MainWindow(QWidget *parent)` | 初始化 UI 控件、加载插件、连接信号/槽、读取配置 |
-| **析构** | `~MainWindow()` | 释放插件接口、配置对象、UI 资源 |
-| **公开方法** | `keyPressEvent(QKeyEvent *event)` | 快捷键处理（F2 打开当前目录） |
+| **私有方法** | `getData(isFile, fileName, inBase64)` | 从文件或文本获取原始数据 |
+| **protected 方法** | `keyPressEvent(QKeyEvent *event)` | 快捷键处理（F2 打开当前目录） |
 | **槽函数** | `on_outputDirToolButton_clicked()` | 选择证书输出目录 |
 | **槽函数** | `on_certTypeComboBox_currentTextChanged()` | 证书类型切换时更新 CN/有效期/扩展 |
 | **槽函数** | `on_genCertPushButton_clicked()` | 触发证书生成流程 |
+| **槽函数** | `on_aeaPrivateToolButton_clicked()` / `on_aeaPublicToolButton_clicked()` | 选择私钥/公钥文件 |
+| **槽函数** | `on_aeaDataToolButton_clicked()` | 选择数据文件 |
 | **槽函数** | `on_aeaEncryptPushButton_clicked()` | 非对称加密 |
 | **槽函数** | `on_aeaDecryptPushButton_clicked()` | 非对称解密 |
 | **槽函数** | `on_aeaDigestPushButton_clicked()` | 计算数据摘要 |
+| **槽函数** | `on_aeaDigestComboBox_currentTextChanged()` | 摘要算法切换 |
 | **槽函数** | `on_aeaSignPushButton_clicked()` | 数据签名 |
 | **槽函数** | `on_aeaVerifySignPushButton_clicked()` | 签名验证 |
+| **槽函数** | `on_seaDataToolButton_clicked()` 等 | 对称区数据/加解密文件选择 |
 | **槽函数** | `on_seaEncryptPushButton_clicked()` | 对称加密（AES/SM4） |
 | **槽函数** | `on_seaDecryptPushButton_clicked()` | 对称解密（AES/SM4） |
+| **槽函数** | `on_seaEncryptModeComboBox_currentTextChanged()` | 加解密模式切换（ECB/CBC/...） |
+| **槽函数** | `on_seaKeyLineEdit_textChanged()` / `on_seaAlgoComboBox_currentTextChanged()` | 密钥输入与算法切换 |
 | **槽函数** | `on_aes128cmacPushButton_clicked()` | AES-128-CMAC 计算 |
-| **私有方法** | `getData(isFile, fileName, inBase64)` | 从文件或文本获取原始数据 |
+
+**构造/析构**：
+
+| 类型 | 成员 | 说明 |
+|------|------|------|
+| **构造** | `MainWindow(QWidget *parent)` | 初始化 UI 控件、加载插件、连接信号/槽、读取配置 |
+| **析构** | `~MainWindow()` | 释放插件接口、配置对象、UI 资源 |
 
 **重要属性**：
 
@@ -283,9 +295,9 @@ QByteArray toDer(pemData);
 
 ```cpp
 QByteArray digest(data, hashAlgo);
-QByteArray signDigest(digest, privateKey, hashAlgo="sha256", passphrase="", userId="");
-QByteArray signData(data, privateKey, hashAlgo="sha256", passphrase="", userId="");
-bool signVerify(data, signature, publicKey, hashAlgo="sha256", userId="");
+QByteArray signDigest(digest, privateKey, hashAlgo="sha256", passphrase="", userId=QByteArray());
+QByteArray signData(data, privateKey, hashAlgo="sha256", passphrase="", userId=QByteArray());
+bool signVerify(data, signature, publicKey, hashAlgo="sha256", userId=QByteArray());
 ```
 
 **对称与非对称加解密**：
@@ -437,7 +449,7 @@ CetToolPluginContext::initFeatures()
     ├── 2. 加载 CetLicensePlugin.dll（QPluginLoader）
     ├── 3. initialize(PRODUCT_NAME)
     ├── 4. 上电 30 秒后首次自动激活
-    └── 5. 定时激活（间隔 30min→60min→120min... 翻倍递增，上限 2h）
+    └── 5. 定时激活（间隔 10min→20min→40min... 翻倍递增，上限 24h；超限后重置回 10min）
          ├── 许可正常：持续定时激活
          ├── 临时授权：记录状态，到期前提醒
          └── 拒绝/停用：停止自动重试
@@ -545,7 +557,7 @@ SM2 签名特殊性：需要传入 `userId`（默认为标准值 `12345678123456
 
 ### 9.2 插件化的功能扩展
 
-**决策**：日志/许可/更新/进度/CAN 功能通过 Qt 插件机制（`QPluginLoader`）实现，v2.5.0 引入 `CetToolPluginContext` 统一管理。
+**决策**：日志/许可/更新/进度功能通过 Qt 插件机制（`QPluginLoader`）实现，v2.5.0 引入 `CetToolPluginContext` 统一管理（CAN 插件独立存在，主程序未加载）。
 
 **理由**：解耦主程序与商业功能，各模块独立开发升级。基础版/Custom 版/全功能版通过不同插件组合实现。插件缺失仅警告，不影响核心密码学功能。`CetToolPluginContext` 提供编译时 SHA256 校验，防止插件 DLL 被替换或篡改，增强安全性。
 

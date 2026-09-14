@@ -52,7 +52,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <h1>CetCryptoToolkit 维护者指南</h1>
 
 <blockquote>
-<p>适用版本：CetCryptoToolkit v2.5.0</p>
+<p>适用版本：CetCryptoToolkit v2.6.0</p>
 <p>作者：CetXiyuan（璟·汐源忆醉）</p>
 </blockquote>
 
@@ -155,9 +155,14 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <tr><td>分支</td><td>用途</td></tr>
 <thead>
 </thead><tbody>
-<tr><td>`master`</td><td>当前开发分支，日常开发提交</td></tr>
-<tr><td>`main`</td><td>稳定发布分支，PR 目标分支</td></tr>
+<tr><td>`master`</td><td>唯一分支，既是开发分支也是发布分支</td></tr>
+<tr><td>`gitee/master`、`github/master`</td><td>双远程镜像（Gitee / GitHub）</td></tr>
 </tbody></table>
+
+<blockquote>
+<p>仓库无 `main` 分支，也无 PR 流程；日常提交与发布均直接落在 `master`。</p>
+<p>远程名为 `gitee` 和 `github`（**不存在 `origin`**）。</p>
+</blockquote>
 
 <h3>2.2 Commit 消息格式</h3>
 
@@ -183,43 +188,60 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <p>编辑 <code>version.h</code>：</p>
 
-<div class="code-block-wrapper"><pre><code class="language-cpp">#define VER_MAJOR               2       /* 主版本号 */
-<p>#define VER_MINOR               5       /<em> 次版本号 </em>/</p>
+<div class="code-block-wrapper"><pre><code class="language-cpp">#define IS_RELEASE_VERSION      ( 0 )   /* 正式版=1，开发版=0（当前仓库为开发版） */
+<p>#define VER_MAJOR               2       /<em> 主版本号 </em>/</p>
+<p>#define VER_MINOR               6       /<em> 次版本号 </em>/</p>
 <p>#define VER_MICRO               0       /<em> 小版本号 </em>/</p>
-<p>#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK250.G716)"</p>
+<p>#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK260.G832)"</p>
 <p>// CXYQK5152 = CetXiyuan QT Kernel 5.15.2</p>
-<p>// CCTK250 = CetCryptoToolkit v2.5.0</p>
-<p>// G716 = G(2026年-20) 7(7月) 16(9日=16-7)</p>
+<p>// CCTK260 = CetCryptoToolkit v2.6.0</p>
+<p>// G832 = G(2026年-20) 8(8月) 32(24日=32-8)</p>
 
-<p>#define PATCH_PACKET            "7152"  // 开发版使用：月+日+序号</code></pre></p>
+<p>#define PATCH_PACKET            "8281"  // 开发版使用：月+日+序号</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<p>确保 <code>IS_RELEASE_VERSION</code> 为 <code>1</code>（正式版）。</p>
+<p>发布正式版时改 <code>IS_RELEASE_VERSION</code> 为 <code>1</code>（当前仓库为 <code>0</code>，即 2.6.0.8281 补丁包开发态）；打补丁包则保持 <code>0</code>，仅递增 <code>PATCH_PACKET</code>。</p>
 
 <h3>3.2 编译与打包</h3>
 
-<div class="code-block-wrapper"><pre><code class="language-bash"># 编译 Release 版本
+<strong>编译</strong>：
+
+<div class="code-block-wrapper"><pre><code class="language-bash">cd CetCryptoToolkit
 <p>qmake CetCryptoToolkit.pro CONFIG+=release</p>
 <p>mingw32-make clean</p>
-<p>mingw32-make -j4</p>
-
-<h1>打包</h1>
-<p>mkdir Output</p>
-<p>cp release/CetCryptoToolkit.exe Output/</p>
-<p>cp libs/libcrypto-3.dll Output/</p>
-<p>cp libs/libssl-3.dll Output/</p>
-<p>cd Output</p>
-<p>windeployqt CetCryptoToolkit.exe</p>
-<p>mkdir plugins</p>
-<p>cp ../plugins/*.dll plugins/</code></pre></p>
+<p>mingw32-make -j4</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
-<h3>3.3 打标签</h3>
+<strong>整理发布目录</strong>：将 exe、依赖 DLL（<code>libcrypto-3.dll</code>、<code>libssl-3.dll</code>）、windeployqt 部署的 Qt 运行时及 <code>plugins/</code>（<code>libs/CetProductWizard.dll</code> 等）放入发布目录；发布目录名须与 Inno Setup 脚本对应：
 
-<div class="code-block-wrapper"><pre><code class="language-bash">git tag -a v2.5.0 -m "发布正式版 V2.5.0"
-<p>git push origin master</p>
-<p>git push origin v2.5.0</code></pre></p>
+<div class="code-block-wrapper"><pre><code>CetCryptoToolkit/CetCryptoToolkit-Release/    # 正式版
+<p>CetCryptoToolkit/CetCryptoToolkit-Patch/      # 补丁包</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<strong>用 Inno Setup 打包</strong>：编辑 <code>CetCryptoToolkit-Setup/CetCryptoToolkit.iss</code> 顶部三个宏，再编译脚本：
+
+<div class="code-block-wrapper"><pre><code>#define MyAppName "CetCryptoToolkit"
+<p>#define MyAppVersion "2.6.0.8281"     ; 与 version.h 保持一致</p>
+<p>#define MyVersionTip "Patch"          ; Release=正式版 / Patch=补丁包</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<p>产物输出到 <code>CetCryptoToolkit-Setup/Output/</code>，命名为</p>
+<code>CetCryptoToolkit-Setup-{MyVersionTip}-V{MyAppVersion}.exe</code>。
+
+<h3>3.3 打标签与推送</h3>
+
+<p>标签沿用仓库既有命名规范（<strong>大写 V</strong>，补丁包附 <code>PATCH_PACKET</code>）：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-bash">git tag -a V2.6.0 -m "发布正式版 V2.6.0"
+<p>git push gitee master</p>
+<p>git push github master</p>
+<p>git push gitee V2.6.0</p>
+<p>git push github V2.6.0</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<blockquote>
+<p>补丁包标签形如 `V2.6.0.8281`。当前已有标签：`V2.5.0`、`V2.5.0.7152`、`V2.5.1`、`V2.6.0`、`V2.6.0.8281`。</p>
+</blockquote>
 
 <hr>
 
@@ -358,7 +380,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <ol>
 <li>「证书类型」选择 **一级根证书(CetXiyuan)** 或 **一级根证书(Custom)**</li>
-<li>点击「配置」→ 设置密钥类型（RSA-2048 推荐或 SM2）、有效期（建议 3650 天）</li>
+<li>点击「配置」→ 设置密钥类型（RSA-2048 推荐或 SM2）、有效期（默认 7300 天 / 20 年）</li>
 <li>点击「生成证书」</li>
 </ol>
 
@@ -393,7 +415,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <tr><td>`<name>.crt.der`</td><td>DER</td><td>证书（二进制）</td></tr>
 <tr><td>`ca-chain-<name>.pem`</td><td>PEM</td><td>证书链</td></tr>
 <tr><td>`ca-chain-<name>.p7b`</td><td>PKCS#7</td><td>证书链（Windows 可双击导入）</td></tr>
-<tr><td>`full-bundle-<name>.pfx`</td><td>PKCS#12</td><td>证书+私钥+证书链（密码 `pfxpassword`）</td></tr>
+<tr><td>`full-bundle-<name>.pfx`</td><td>PKCS#12</td><td>证书+私钥+证书链（UI 默认密码 `123456`，可在界面修改）</td></tr>
 </tbody></table>
 
 <h3>6.4 PFX 和 P7B 的使用场景</h3>
@@ -409,7 +431,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <thead>
 </thead><tbody>
 <tr><td>密钥类型</td><td>非对称算法</td><td>RSA-2048、EC prime256v1、SM2</td></tr>
-<tr><td>有效期（天）</td><td>证书有效天数</td><td>365、1825、3650</td></tr>
+<tr><td>有效期（天）</td><td>证书有效天数</td><td>终端 365 / 二级 CA 1825 / 一级 CA 7300（切换证书类型时自动填入默认值）</td></tr>
 <tr><td>CommonName (CN)</td><td>证书主体名称</td><td>`example.com`、`My Root CA`</td></tr>
 <tr><td>证书扩展字段</td><td>X.509 v3 扩展</td><td>见下方</td></tr>
 </tbody></table>
@@ -443,12 +465,15 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <p>在 <code>opensslhelper.cpp</code> 的 <code>supportedKeyAlgorithms</code> 添加条目：</p>
 
-<div class="code-block-wrapper"><pre><code class="language-cpp">static QList&lt;QPair&lt;QString, int&gt;&gt; supportedKeyAlgorithms = {
+<div class="code-block-wrapper"><pre><code class="language-cpp">// 现有列表（opensslhelper.cpp）
+<p>static QList&lt;QPair&lt;QString, int&gt;&gt; supportedKeyAlgorithms = {</p>
 <p>    {"RSA",     EVP_PKEY_RSA},</p>
 <p>    {"EC",      EVP_PKEY_EC},</p>
 <p>    {"SM2",     EVP_PKEY_SM2},</p>
-<p>    {"Ed25519", EVP_PKEY_ED25519},  // 新增</p>
-<p>};</code></pre></p>
+<p>};</p>
+
+<p>// 新增算法示例（如 Ed25519）</p>
+<p>// {"Ed25519", EVP_PKEY_ED25519},</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
 <p>然后在 <code>genKeyPair()</code> 添加对应分支。</p>
@@ -470,20 +495,22 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <p>{</p>
 <p>    // ...</p>
 <p>    } else if (arg1.contains(TEXT_RootCACustom)) {</p>
-<p>        m_certManager-&gt;setValidDays(365 * 10);  // 改为 10 年</p>
+<p>        m_certManager-&gt;setValidDays(365 * 20);  // 一级根证书默认 20 年</p>
 <p>    }</p>
 <p>}</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
 <h3>7.4 修改许可证激活间隔上限</h3>
 
-<div class="code-block-wrapper"><pre><code class="language-cpp">QTimer::singleShot(auto_timing_msec, this, [=]() {
+<p>相关代码在 <code>CetToolDLLs/CetToolLibs/CetProductWizard/cettoolplugincontext.cpp</code> 的 <code>initFeatures()</code> 中（<strong>不在本仓库</strong>）：</p>
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">static int auto_timing_msec = 10 * 60 * 1000; // 初始 10 分钟
+<p>connect(activateTimer, &amp;QTimer::timeout, this, [=]() {</p>
 <p>    auto_timing_active = true;</p>
-<p>    auto_timing_msec = auto_timing_msec * 2;</p>
-<p>    // 添加上限</p>
-<p>    if (auto_timing_msec &gt; 2 <em> 60 </em> 60 * 1000)</p>
-<p>        auto_timing_msec = 2 <em> 60 </em> 60 * 1000;</p>
-<p>    // ...</p>
+<p>    auto_timing_msec = auto_timing_msec * 2;                      // 翻倍递增</p>
+<p>    if (auto_timing_msec &gt; 24 <em> 60 </em> 60 * 1000)                   // 上限 24 小时</p>
+<p>        auto_timing_msec = 10 <em> 60 </em> 1000;                        // 超限重置回 10 分钟</p>
+<p>    emit licenseMenu-&gt;actions().first()-&gt;triggered(true);</p>
 <p>});</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
@@ -522,6 +549,19 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <code>CetToolPluginContext</code> 内置 DLL 完整性校验（SHA256），构造函数传入编译时计算的 DLL 哈希值，运行时对比防止插件被替换。
 
+<code>HASH_CetProductWizard_DLL</code> 定义在同级仓库 <strong><code>CetToolDLLs/cettooldlls_hashes.h</code></strong>：
+
+<div class="code-block-wrapper"><pre><code class="language-cpp">// CetToolDLLs/cettooldlls_hashes.h
+<p>static const char HASH_CetProductWizard_DLL[] = "5caa4b34...bdf90";  // CetProductWizard.dll 的 SHA256</code></pre></p>
+<button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
+
+<p>该头文件通过 <code>INCLUDEPATH += $$PWD/../../CetToolDLLs</code> 引入（<code>mainwindow.cpp</code> 首部 <code>#include "cettooldlls_hashes.h"</code>）。</p>
+<p>更换 <code>CetProductWizard.dll</code> 后需重新计算 SHA256 并更新此头文件，否则完整性校验失败。</p>
+
+<blockquote>
+<p>`CetToolPluginContext` 的实现同样位于 `CetToolDLLs/CetToolLibs/CetProductWizard/`，本仓库 `mainwindow/cettoolplugincontext.h` 仅为接口头文件（未列入 `.pri` 编译），实现在外部库中通过 `-lCetProductWizard` 链接。</p>
+</blockquote>
+
 <hr>
 
 <h2>8. 目录说明</h2>
@@ -535,7 +575,8 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <tr><td>`dir-symmetrics/`</td><td>对称加密数据目录</td></tr>
 <tr><td>`Configs/`</td><td>配置文件目录（AppMaster.ini）</td></tr>
 <tr><td>`Record/`</td><td>日志记录目录</td></tr>
-<tr><td>`plugins/`</td><td>Qt 插件 DLL 备用搜索路径</td></tr>
+<tr><td>`plugins/`</td><td>功能插件 DLL 搜索路径（**部署时创建**，源码树中不存在；DLL 源文件在 `libs/`）</td></tr>
+<tr><td>`libs/`</td><td>预编译 DLL（`CetProductWizard.dll`、OpenSSL 3.x/1.1.x、`openssl.exe`）</td></tr>
 </tbody></table>
 </div>
 <div class="footer"><p>📄 文档转换 · 笔名 CetXiyuan</p></div>

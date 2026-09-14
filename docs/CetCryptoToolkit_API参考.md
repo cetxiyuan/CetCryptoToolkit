@@ -1,6 +1,6 @@
 # CetCryptoToolkit API 参考
 
-> 适用版本：CetCryptoToolkit v2.5.0
+> 适用版本：CetCryptoToolkit v2.6.0
 > 核心类：`OpenSSLHelper`
 > 文件：`modules/opensslhelper/opensslhelper.h/cpp`
 
@@ -11,18 +11,18 @@
 ### 1.1 版本信息
 
 ```cpp
-#define IS_RELEASE_VERSION      ( 1 )   // 正式版=1，开发版=0
+#define IS_RELEASE_VERSION      ( 0 )   // 正式版=1，开发版=0（当前仓库为开发版）
 #define APP_NAME                "CetCryptoToolkit"
 #define PRODUCT_ICON            "favorite.ico"
 
 #define VER_MAJOR               2       // 主版本号
-#define VER_MINOR               5       // 次版本号
+#define VER_MINOR               6       // 次版本号
 #define VER_MICRO               0       // 小版本号
 
-#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK250.G716)"
-// G716: G=2026年, 7=7月, 16=9日 (16-7=9), 即2026-07-09
+#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK260.G832)"
+// G832: G=2026年, 8=8月, 32=24日 (32-8=24), 即2026-08-24
 
-#define PATCH_PACKET            "7152"  // 月+日+序号（开发版使用）
+#define PATCH_PACKET            "8281"  // 月+日+序号（开发版使用）
 #define COMPANY_NAME            "CetXiyuan"
 ```
 
@@ -32,12 +32,22 @@
 #define VERSION_CHECK(major, minor, micro)  (((major)<<16)|((minor)<<8)|((micro)<<0))
 #define VERSION_STRING(major, minor, micro) __STR(major) "." __STR(minor) "." __STR(micro)
 #define DIRECT_STRING(major, minor, micro)  __STR(major) __STR(minor) __STR(micro)
+#define __STR(var)   #var
 
 #if (IS_RELEASE_VERSION > 0)
-#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO)  // "2.5.0"
+#define TIP_VERSION             RELEASE_DATE
+#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO)  // "2.6.0"
 #else
-#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO) "." PATCH_PACKET
+#define TIP_VERSION             RELEASE_DATE " Patch-" PATCH_PACKET
+#define APP_VERSION             VERSION_STRING(VER_MAJOR, VER_MINOR, VER_MICRO) "." PATCH_PACKET  // "2.6.0.8281"
 #endif
+
+/* 文件/产品版本（app.rc 使用） */
+#define FILE_VERSION            VER_MAJOR,VER_MINOR,VER_MICRO
+#define FILE_VERSION_STR        APP_VERSION
+#define PRODUCT_VERSION         FILE_VERSION
+#define PRODUCT_VERSION_STR     FILE_VERSION_STR
+#define ORIGINAL_NAME           APP_NAME ".exe"
 
 #define FILE_DESCRIPTION        APP_NAME " based on Qt 5.15.2 (MinGW, 32 bit)"
 #define LEGAL_COPYRIGHT         "Copyright 2008-2035 The " COMPANY_NAME " Ltd. All rights reserved."
@@ -243,7 +253,7 @@ QByteArray sm4Decrypt(const QByteArray &ciphertext, const QByteArray &key,
 ### 2.10 SM2 格式转换
 
 ```cpp
-QByteArray sm2PubKeyToDer(const QByteArray &rawPubKey);  // 裸公钥(65B) → DER
+QByteArray sm2PubKeyToDer(const QByteArray &rawPubKey);  // 裸公钥(64B, X+Y，内部自动补 0x04 前缀) → DER
 QByteArray sm2SignToDer(const QByteArray &rawSignKey);   // 裸签名(r||s, 64B) → DER
 ```
 
@@ -289,17 +299,53 @@ void clearErrors();                 // 清空错误队列
 void appendError(const QString &error);
 ```
 
-### 2.14 私有辅助方法
+> 错误队列存储于私有成员 `QList<QString> m_errors`。
+
+### 2.14 OpenSSL 命令行工具封装（public）
+
+调用外部 `openssl.exe` 的封装（`CertificateManager::genCertificateOpenssl()` 即 `USE_OPENSSL_TOOL_HANDLER=1` 调试路径依赖此组 API）：
+
+```cpp
+bool opensslGenKeyPair(const QString &algorithm,  // "RSA"/"EC"
+                       const QString &keySize,    // RSA:2048/3072/4096, EC:256/384/521
+                       const QString &privKeyPath,
+                       const QString &pubKeyPath = "",
+                       const QString &passphrase = "");
+bool opensslGenSelfCert(int validDays, const QString &subjectDN,
+                        const QString &keyPath, const QString &outPath,
+                        const QString &hashAlgo = "-sha256",   // 注意：实现内部自动补 "-"，实际应传 "sha256"
+                        const QString &passphrase = "");
+bool opensslGenCSR(const QString &subjectDN, const QString &keyPath,
+                   const QString &outPath, const QStringList &extensions,
+                   const QString &passphrase = "");
+bool opensslSignCSR(int validDays, const QString &csrPath,
+                    const QString &caPath, const QString &caKeyPath,
+                    const QString &outPath, const QStringList &extensions,
+                    const QString &hashAlgo = "-sha256",
+                    const QString &passphrase = "");
+bool opensslGenChain(const QString &subCAPath,     // 证书链 = 一级根证书 + 二级根证书
+                     const QString &rootCAPath, const QString &outPath);
+bool opensslToP7b(const QString &chainPath, const QString &outPath);
+bool opensslToPfx(const QString &pemPath,          // PFX = 证书链 + 终端私钥 + 终端证书
+                  const QString &pemKeyPath, const QString &chainPath,
+                  const QString &outPath, const QString &passphrase = "");
+bool opensslToDer(const QString &pemPath, const QString &outPath);
+bool opensslTool(const QString &program, const QStringList &arguments);  // 通用命令行调用
+bool opensslTest(void);
+```
+
+### 2.15 私有辅助方法
 
 | 方法 | 说明 |
 |------|------|
 | `parseSubjectDN(subjectDN)` → `X509_NAME*` | 解析 "/CN=.../O=..." 格式 DN |
 | `addExtensions(ca, cert, req, exts)` → `bool` | 为 X509/X509_REQ 添加扩展 |
 | `getOpenSSLError()` → `QString` | 获取 OpenSSL 错误栈 |
-| `aesCipher(mode, key)` → `const EVP_CIPHER*` | 密钥长度自动选择 AES-128/192/256 |
-| `qcertToX509(cert)` → `X509*` | QSslCertificate → X509 |
-| `qsslkeyToEVP(key)` → `EVP_PKEY*` | QSslKey → EVP_PKEY |
-| `callbackPassword(...)` → `int` | PEM 密码回调 |
+| `aesCipher(mode, key)` → `const EVP_CIPHER*`（static） | 密钥长度自动选择 AES-128/192/256 |
+| `digestFromName(name)` → `const EVP_MD*`（static） | 算法名（"sha256" 等）→ EVP_MD |
+| `qcertToX509(cert)` → `X509*`（static） | QSslCertificate → X509 |
+| `qsslkeyToEVP(key)` → `EVP_PKEY*`（static） | QSslKey → EVP_PKEY |
+| `callbackPassword(...)` → `int`（static） | PEM 密码回调 |
 
 ---
 
@@ -373,8 +419,26 @@ private slots:
 #define CAROOT_DEF_COMMONNAME   "CetXiyuan Root CA Signing Authority"
 #define CAROOT_CUS_COMMONNAME   "CetXiyuan Custom Root CA Signing Authority"
 #define CASUB_DEF_COMMONNAME    "CetXiyuan Subordinate CA Signing Authority"
-#define USE_OPENSSL_TOOL_HANDLER (0)  // 0=API路径, 1=openssl.exe路径
+#define USE_OPENSSL_TOOL_HANDLER (0)  // 0=API路径, 1=openssl.exe路径（编译期宏，修改需重新编译）
+
+// 默认输出目录（应用目录下）
+#define CAROOT_DEF_DIR  QCoreApplication::applicationDirPath() + "/dir-certs"
+#define CASUB_DEF_DIR   CAROOT_DEF_DIR
+
+// 预定义证书扩展（RootCA/SubCA/EndEntity 各一套，内容见第 7 节）
+#define CAROOT_DEF_CERTEXTS ...
+#define CASUB_DEF_CERTEXTS ...
+#define ENDENTITY_DEF_CERTEXTS ...
 ```
+
+### 3.7 私有成员（摘要）
+
+| 成员 | 类型 | 说明 |
+|------|------|------|
+| `m_openSSLHelper` | `OpenSSLHelper *const` | 密码学核心（外部传入） |
+| `m_rootCAKeyPair` / `m_subCAKeyPair` | `QPair<QSslKey,QSslKey>` | 根/二级 CA 密钥对 |
+| `m_rootCACert` / `m_subCACert` | `QSslCertificate` | 根/二级 CA 证书 |
+| 私有方法 `loadCA(cert, keyPair, dir, tier, caname)` | | 启动时从 dir-certs 加载已有 CA |
 
 ---
 
@@ -456,6 +520,14 @@ CetUpdateInterface    *updater()   const;
 CetProgressInterface  *progress()  const;
 ```
 
+### 5.2.1 试用提醒（v2.5.1 新增）
+
+```cpp
+// cettoolplugincontext.h 私有成员
+TrialReminder *m_trialReminder = nullptr;
+// 由 CetProductWizard.dll 内部实现，提供试用期到期提醒功能
+```
+
 ### 5.3 带校验的插件加载
 
 ```cpp
@@ -476,6 +548,8 @@ static bool selfIntegrityCheck(const QString &expectedHash);
 ---
 
 ## 6. 插件接口
+
+三个接口均为**普通 C++ 抽象类**（非 `QObject` 派生），带虚析构与 `Q_DECLARE_INTERFACE` 导出宏，定义在 `interfaces/` 目录。
 
 ### CetLicenseInterface
 
@@ -538,7 +612,7 @@ certificatePolicies=1.2.3.4
 
 ## 9. 使用示例
 
-### 8.1 RSA 密钥对 + 签名验签
+### 9.1 RSA 密钥对 + 签名验签
 
 ```cpp
 OpenSSLHelper helper;
@@ -547,7 +621,7 @@ QByteArray sig = helper.signData("data", kp.second, "sha256");
 bool ok = helper.signVerify("data", sig, kp.first, "sha256");
 ```
 
-### 8.2 AES-256-GCM 加解密
+### 9.2 AES-256-GCM 加解密
 
 ```cpp
 QByteArray key = OpenSSLHelper::aesGenerateKey(32);
@@ -556,7 +630,7 @@ QByteArray cipher = OpenSSLHelper::aesEncrypt("plaintext", key, OpenSSLHelper::S
 QByteArray plain  = OpenSSLHelper::aesDecrypt(cipher, key, OpenSSLHelper::SYM_GCM);
 ```
 
-### 8.3 SM2 签名
+### 9.3 SM2 签名
 
 ```cpp
 auto kp = helper.genKeyPair("SM2");
@@ -564,7 +638,7 @@ QByteArray sig = helper.signData("data", kp.second, "sm3", "", "1234567812345678
 bool ok = helper.signVerify("data", sig, kp.first, "sm3", "1234567812345678");
 ```
 
-### 8.4 SM4-CBC 加解密
+### 9.4 SM4-CBC 加解密
 
 ```cpp
 QByteArray key  = QByteArray::fromHex("0123456789ABCDEF0123456789ABCDEF");
@@ -575,7 +649,7 @@ QByteArray cipher = helper.sm4Encrypt(data, key, OpenSSLHelper::SYM_CBC, iv);
 QByteArray plain  = helper.sm4Decrypt(cipher, key, OpenSSLHelper::SYM_CBC, iv);
 ```
 
-### 8.5 三级 PKI 证书生成
+### 9.5 三级 PKI 证书生成
 
 ```cpp
 OpenSSLHelper helper;
@@ -606,7 +680,7 @@ QByteArray pfx = helper.toPfx(endCert, endKP.second,
     helper.genChain(subCert, rootCert), "password");
 ```
 
-### 8.6 SM2 证书签发
+### 9.6 SM2 证书签发
 
 ```cpp
 QPair<QSslKey, QSslKey> keyPair = helper.genKeyPair("SM2");
@@ -661,7 +735,7 @@ bool ok = helper.signVerify(data, rawSign, publicKey, "sm3", userId);
 ### 10.4 SM2 公钥格式转换
 
 ```cpp
-QByteArray rawPubKey = ...;         // 65字节（04 + X + Y）
+QByteArray rawPubKey = ...;         // 64字节（X + Y，不含 0x04 前缀，内部自动补齐）
 QByteArray derPubKey = helper.sm2PubKeyToDer(rawPubKey);
 ```
 

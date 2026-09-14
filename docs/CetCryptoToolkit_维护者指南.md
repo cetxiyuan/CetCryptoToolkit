@@ -1,6 +1,6 @@
 # CetCryptoToolkit 维护者指南
 
-> 适用版本：CetCryptoToolkit v2.5.0
+> 适用版本：CetCryptoToolkit v2.6.0
 > 作者：CetXiyuan（璟·汐源忆醉）
 
 ---
@@ -97,8 +97,11 @@ cleanup:
 
 | 分支 | 用途 |
 |------|------|
-| `master` | 当前开发分支，日常开发提交 |
-| `main` | 稳定发布分支，PR 目标分支 |
+| `master` | 唯一分支，既是开发分支也是发布分支 |
+| `gitee/master`、`github/master` | 双远程镜像（Gitee / GitHub） |
+
+> 仓库无 `main` 分支，也无 PR 流程；日常提交与发布均直接落在 `master`。
+> 远程名为 `gitee` 和 `github`（**不存在 `origin`**）。
 
 ### 2.2 Commit 消息格式
 
@@ -127,45 +130,62 @@ Updated: 支持临时授权、停用/拒绝状态，拒绝后停止重试
 编辑 `version.h`：
 
 ```cpp
+#define IS_RELEASE_VERSION      ( 0 )   /* 正式版=1，开发版=0（当前仓库为开发版） */
 #define VER_MAJOR               2       /* 主版本号 */
-#define VER_MINOR               5       /* 次版本号 */
+#define VER_MINOR               6       /* 次版本号 */
 #define VER_MICRO               0       /* 小版本号 */
-#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK250.G716)"
+#define RELEASE_DATE            "(3.0.18)(CXYQK5152.CCTK260.G832)"
 // CXYQK5152 = CetXiyuan QT Kernel 5.15.2
-// CCTK250 = CetCryptoToolkit v2.5.0
-// G716 = G(2026年-20) 7(7月) 16(9日=16-7)
+// CCTK260 = CetCryptoToolkit v2.6.0
+// G832 = G(2026年-20) 8(8月) 32(24日=32-8)
 
-#define PATCH_PACKET            "7152"  // 开发版使用：月+日+序号
+#define PATCH_PACKET            "8281"  // 开发版使用：月+日+序号
 ```
 
-确保 `IS_RELEASE_VERSION` 为 `1`（正式版）。
+发布正式版时改 `IS_RELEASE_VERSION` 为 `1`（当前仓库为 `0`，即 2.6.0.8281 补丁包开发态）；打补丁包则保持 `0`，仅递增 `PATCH_PACKET`。
 
 ### 3.2 编译与打包
 
+**编译**：
+
 ```bash
-# 编译 Release 版本
+cd CetCryptoToolkit
 qmake CetCryptoToolkit.pro CONFIG+=release
 mingw32-make clean
 mingw32-make -j4
-
-# 打包
-mkdir Output
-cp release/CetCryptoToolkit.exe Output/
-cp libs/libcrypto-3.dll Output/
-cp libs/libssl-3.dll Output/
-cd Output
-windeployqt CetCryptoToolkit.exe
-mkdir plugins
-cp ../plugins/*.dll plugins/
 ```
 
-### 3.3 打标签
+**整理发布目录**：将 exe、依赖 DLL（`libcrypto-3.dll`、`libssl-3.dll`）、windeployqt 部署的 Qt 运行时及 `plugins/`（`libs/CetProductWizard.dll` 等）放入发布目录；发布目录名须与 Inno Setup 脚本对应：
+
+```
+CetCryptoToolkit/CetCryptoToolkit-Release/    # 正式版
+CetCryptoToolkit/CetCryptoToolkit-Patch/      # 补丁包
+```
+
+**用 Inno Setup 打包**：编辑 `CetCryptoToolkit-Setup/CetCryptoToolkit.iss` 顶部三个宏，再编译脚本：
+
+```
+#define MyAppName "CetCryptoToolkit"
+#define MyAppVersion "2.6.0.8281"     ; 与 version.h 保持一致
+#define MyVersionTip "Patch"          ; Release=正式版 / Patch=补丁包
+```
+
+产物输出到 `CetCryptoToolkit-Setup/Output/`，命名为
+`CetCryptoToolkit-Setup-{MyVersionTip}-V{MyAppVersion}.exe`。
+
+### 3.3 打标签与推送
+
+标签沿用仓库既有命名规范（**大写 V**，补丁包附 `PATCH_PACKET`）：
 
 ```bash
-git tag -a v2.5.0 -m "发布正式版 V2.5.0"
-git push origin master
-git push origin v2.5.0
+git tag -a V2.6.0 -m "发布正式版 V2.6.0"
+git push gitee master
+git push github master
+git push gitee V2.6.0
+git push github V2.6.0
 ```
+
+> 补丁包标签形如 `V2.6.0.8281`。当前已有标签：`V2.5.0`、`V2.5.0.7152`、`V2.5.1`、`V2.6.0`、`V2.6.0.8281`。
 
 ---
 
@@ -290,7 +310,7 @@ PKI（公钥基础设施）支持**三级证书体系**：
 **第一步：生成一级根证书**
 
 1. 「证书类型」选择 **一级根证书(CetXiyuan)** 或 **一级根证书(Custom)**
-2. 点击「配置」→ 设置密钥类型（RSA-2048 推荐或 SM2）、有效期（建议 3650 天）
+2. 点击「配置」→ 设置密钥类型（RSA-2048 推荐或 SM2）、有效期（默认 7300 天 / 20 年）
 3. 点击「生成证书」
 
 **第二步：生成二级根证书**
@@ -318,7 +338,7 @@ PKI（公钥基础设施）支持**三级证书体系**：
 | `<name>.crt.der` | DER | 证书（二进制） |
 | `ca-chain-<name>.pem` | PEM | 证书链 |
 | `ca-chain-<name>.p7b` | PKCS#7 | 证书链（Windows 可双击导入） |
-| `full-bundle-<name>.pfx` | PKCS#12 | 证书+私钥+证书链（密码 `pfxpassword`） |
+| `full-bundle-<name>.pfx` | PKCS#12 | 证书+私钥+证书链（UI 默认密码 `123456`，可在界面修改） |
 
 ### 6.4 PFX 和 P7B 的使用场景
 
@@ -331,7 +351,7 @@ PKI（公钥基础设施）支持**三级证书体系**：
 | 参数 | 说明 | 示例 |
 |------|------|------|
 | 密钥类型 | 非对称算法 | RSA-2048、EC prime256v1、SM2 |
-| 有效期（天） | 证书有效天数 | 365、1825、3650 |
+| 有效期（天） | 证书有效天数 | 终端 365 / 二级 CA 1825 / 一级 CA 7300（切换证书类型时自动填入默认值） |
 | CommonName (CN) | 证书主体名称 | `example.com`、`My Root CA` |
 | 证书扩展字段 | X.509 v3 扩展 | 见下方 |
 
@@ -367,12 +387,15 @@ openssl x509 -in <name>.crt.pem -text -noout
 在 `opensslhelper.cpp` 的 `supportedKeyAlgorithms` 添加条目：
 
 ```cpp
+// 现有列表（opensslhelper.cpp）
 static QList<QPair<QString, int>> supportedKeyAlgorithms = {
     {"RSA",     EVP_PKEY_RSA},
     {"EC",      EVP_PKEY_EC},
     {"SM2",     EVP_PKEY_SM2},
-    {"Ed25519", EVP_PKEY_ED25519},  // 新增
 };
+
+// 新增算法示例（如 Ed25519）
+// {"Ed25519", EVP_PKEY_ED25519},
 ```
 
 然后在 `genKeyPair()` 添加对应分支。
@@ -393,21 +416,23 @@ void MainWindow::on_certTypeComboBox_currentTextChanged(const QString &arg1)
 {
     // ...
     } else if (arg1.contains(TEXT_RootCACustom)) {
-        m_certManager->setValidDays(365 * 10);  // 改为 10 年
+        m_certManager->setValidDays(365 * 20);  // 一级根证书默认 20 年
     }
 }
 ```
 
 ### 7.4 修改许可证激活间隔上限
 
+相关代码在 `CetToolDLLs/CetToolLibs/CetProductWizard/cettoolplugincontext.cpp` 的 `initFeatures()` 中（**不在本仓库**）：
+
 ```cpp
-QTimer::singleShot(auto_timing_msec, this, [=]() {
+static int auto_timing_msec = 10 * 60 * 1000; // 初始 10 分钟
+connect(activateTimer, &QTimer::timeout, this, [=]() {
     auto_timing_active = true;
-    auto_timing_msec = auto_timing_msec * 2;
-    // 添加上限
-    if (auto_timing_msec > 2 * 60 * 60 * 1000)
-        auto_timing_msec = 2 * 60 * 60 * 1000;
-    // ...
+    auto_timing_msec = auto_timing_msec * 2;                      // 翻倍递增
+    if (auto_timing_msec > 24 * 60 * 60 * 1000)                   // 上限 24 小时
+        auto_timing_msec = 10 * 60 * 1000;                        // 超限重置回 10 分钟
+    emit licenseMenu->actions().first()->triggered(true);
 });
 ```
 
@@ -449,6 +474,18 @@ m_toolPluginCtx->initFeatures(ui->logManagerMenu, ui->licenseMenu,
 
 `CetToolPluginContext` 内置 DLL 完整性校验（SHA256），构造函数传入编译时计算的 DLL 哈希值，运行时对比防止插件被替换。
 
+`HASH_CetProductWizard_DLL` 定义在同级仓库 **`CetToolDLLs/cettooldlls_hashes.h`**：
+
+```cpp
+// CetToolDLLs/cettooldlls_hashes.h
+static const char HASH_CetProductWizard_DLL[] = "5caa4b34...bdf90";  // CetProductWizard.dll 的 SHA256
+```
+
+该头文件通过 `INCLUDEPATH += $$PWD/../../CetToolDLLs` 引入（`mainwindow.cpp` 首部 `#include "cettooldlls_hashes.h"`）。
+更换 `CetProductWizard.dll` 后需重新计算 SHA256 并更新此头文件，否则完整性校验失败。
+
+> `CetToolPluginContext` 的实现同样位于 `CetToolDLLs/CetToolLibs/CetProductWizard/`，本仓库 `mainwindow/cettoolplugincontext.h` 仅为接口头文件（未列入 `.pri` 编译），实现在外部库中通过 `-lCetProductWizard` 链接。
+
 ---
 
 ## 8. 目录说明
@@ -460,4 +497,5 @@ m_toolPluginCtx->initFeatures(ui->logManagerMenu, ui->licenseMenu,
 | `dir-symmetrics/` | 对称加密数据目录 |
 | `Configs/` | 配置文件目录（AppMaster.ini） |
 | `Record/` | 日志记录目录 |
-| `plugins/` | Qt 插件 DLL 备用搜索路径 |
+| `plugins/` | 功能插件 DLL 搜索路径（**部署时创建**，源码树中不存在；DLL 源文件在 `libs/`） |
+| `libs/` | 预编译 DLL（`CetProductWizard.dll`、OpenSSL 3.x/1.1.x、`openssl.exe`） |

@@ -52,7 +52,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <h1>CetCryptoToolkit 构建与运行指南</h1>
 
 <blockquote>
-<p>适用版本：CetCryptoToolkit v2.5.0</p>
+<p>适用版本：CetCryptoToolkit v2.6.0</p>
 <p>平台：Windows 7 / 10 / 11</p>
 </blockquote>
 
@@ -66,10 +66,10 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 </thead><tbody>
 <tr><td>**Qt**</td><td>5.15.2</td><td>必须使用此版本</td></tr>
 <tr><td>**编译器**</td><td>**MinGW 8.1.0 32-bit**</td><td>必须是 32-bit，不可用 64-bit 或 MSVC</td></tr>
-<tr><td>**OpenSSL**</td><td>3.x（3.0.18）</td><td>已预置在 `libs/` 目录，无需单独安装</td></tr>
-<tr><td>**CMake**</td><td>3.16+（可选）</td><td>使用 CMake 构建时需要</td></tr>
+<tr><td>**OpenSSL**</td><td>3.x（3.0.18）</td><td>已预置在 `libs/` 目录（含 3.x 头文件与 `openssl.exe`），无需单独安装。`libs/` 中另有 1.1.x 系 DLL 为历史遗留，未被链接</td></tr>
+<tr><td>**CMake**</td><td>3.16+（可选）</td><td>当前 CMakeLists.txt 不可用（见 4.3），实际用不到</td></tr>
 <tr><td>**Git**</td><td>任意版本</td><td>代码管理</td></tr>
-<tr><td>**操作系统**</td><td>Windows 10/11</td><td>目标平台</td></tr>
+<tr><td>**操作系统**</td><td>Windows 7 / 10 / 11</td><td>目标平台</td></tr>
 </tbody></table>
 
 <blockquote>
@@ -121,22 +121,27 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <h3>目录结构确认</h3>
 
-<div class="code-block-wrapper"><pre><code>CetCryptoToolkit/
+<div class="code-block-wrapper"><pre><code>CetCryptoToolkit/                  # 源码子目录（.pro 在此层，非仓库根）
 <p>├── main.cpp</p>
 <p>├── version.h</p>
 <p>├── CetCryptoToolkit.pro          # qmake 工程文件（主力）</p>
-<p>├── CMakeLists.txt                # CMake 工程文件（备选）</p>
-<p>├── app.rc                        # Windows 资源文件</p>
+<p>├── CMakeLists.txt                # CMake 工程文件（备选，当前不可用，见 4.3）</p>
+<p>├── app.rc                        # Windows 资源文件（引用 PRODUCT_ICON）</p>
+<p>├── favorite.ico                  # 应用图标（app.rc 依赖，缺失将导致 rc 编译失败）</p>
+<p>├── app_ico.ico</p>
 <p>├── mainwindow/                   # 主窗口模块</p>
 <p>├── modules/</p>
 <p>│   ├── opensslhelper/            # 密码学核心</p>
 <p>│   └── certificatemanager/       # 证书管理</p>
 <p>├── interfaces/                   # 插件接口定义</p>
 <p>├── libs/                         # 预编译 DLL</p>
-<p>│   ├── libcrypto-3.dll</p>
+<p>│   ├── libcrypto-3.dll           # OpenSSL 3.x（当前链接使用）</p>
 <p>│   ├── libssl-3.dll</p>
-<p>│   └── CetProductWizard.dll</p>
-<p>├── include/openssl/              # OpenSSL C 头文件</code></pre></p>
+<p>│   ├── libcrypto-1_1.dll         # OpenSSL 1.1.x（历史遗留，未链接）</p>
+<p>│   ├── libssl-1_1.dll</p>
+<p>│   ├── openssl.exe               # 命令行工具（降级路径使用）</p>
+<p>│   └── CetProductWizard.dll      # 产品向导插件</p>
+<p>└── include/openssl/              # OpenSSL C 头文件</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
 <hr>
@@ -180,7 +185,11 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
 <blockquote>
-<p>**注意**：CMake 构建文件当前为 Qt Creator 自动生成的模板，未完全配置第三方库路径和插件加载逻辑，建议使用 qmake 构建。</p>
+<p>**注意**：CMake 构建文件当前为 Qt Creator 自动生成的模板，**无法成功构建**：</p>
+<p>- `PROJECT_SOURCES` 引用的是 `mainwindow.cpp/mainwindow.h/mainwindow.ui`，但实际文件位于 `mainwindow/` 子目录（正确路径为 `mainwindow/mainwindow.cpp` 等），配置阶段后编译必然报“找不到 mainwindow.h”</p>
+<p>- 未包含 `modules/`、`interfaces/` 的源文件，也未配置 OpenSSL 头文件/库路径与插件链接</p>
+
+<p>qmake 是唯一的可用构建方式。</p>
 </blockquote>
 
 <hr>
@@ -193,19 +202,20 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 
 <h3>5.2 部署到独立目录</h3>
 
-<div class="code-block-wrapper"><pre><code class="language-bash"># 创建发布目录
+<div class="code-block-wrapper"><pre><code class="language-bash"># 创建发布目录（qmake 输出目录视构建方式而定，Qt Creator 下通常在 build-*/ 中）
 <p>mkdir release-deploy</p>
 <p>cp release/CetCryptoToolkit.exe release-deploy/</p>
 <p>cp libs/libcrypto-3.dll release-deploy/</p>
 <p>cp libs/libssl-3.dll release-deploy/</p>
+<p>cp libs/favorite.ico release-deploy/ 2&gt;/dev/null  # 若图标为外部加载</p>
 
 <h1>使用 windeployqt 自动部署 Qt 运行时</h1>
 <p>cd release-deploy</p>
 <p>windeployqt CetCryptoToolkit.exe</p>
 
-<h1>手动复制插件 DLL（可选）</h1>
+<h1>复制产品插件（源码树中无 plugins/ 目录，DLL 来自 libs/）</h1>
 <p>mkdir plugins</p>
-<p>cp ../plugins/*.dll plugins/</code></pre></p>
+<p>cp ../libs/CetProductWizard.dll plugins/</code></pre></p>
 <button class="code-copy-btn" onclick="copyCodeBlock(this)">📋 复制</button></div>
 
 <p>完整运行时目录结构：</p>
@@ -244,11 +254,11 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <tr><td>`CetLicensePlugin.dll`</td><td>CetLicenseInterface</td><td>授权验证</td></tr>
 <tr><td>`CetUpdatePlugin.dll`</td><td>CetUpdateInterface</td><td>软件更新检查</td></tr>
 <tr><td>`CetProgressPlugin.dll`</td><td>CetProgressInterface</td><td>进度显示</td></tr>
-<tr><td>`CetCANPlugin.dll`</td><td>—</td><td>CAN 总线通信</td></tr>
+<tr><td>`CetCANPlugin.dll`</td><td>—</td><td>CAN 总线通信（主程序当前无加载代码）</td></tr>
 </tbody></table>
 
 <blockquote>
-<p>v2.5.0 起，许可/日志/更新/进度插件由 `CetToolPluginContext` 统一加载管理，支持 DLL SHA256 完整性校验。CetCANPlugin 独立加载。</p>
+<p>v2.5.0 起，许可/日志/更新/进度四个插件由 `CetToolPluginContext::initFeatures()` 统一加载管理，支持 DLL SHA256 完整性校验。主程序当前不加载 `CetCANPlugin.dll`。</p>
 </blockquote>
 
 <blockquote>
@@ -283,7 +293,7 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <tr><td>"无法找到 libcrypto-3.dll"</td><td>不在 PATH 中</td><td>复制 `libs/libcrypto-3.dll` 和 `libs/libssl-3.dll` 到 exe 同目录</td></tr>
 <tr><td>"缺少 Qt5Core.dll"</td><td>Qt DLL 不在 PATH</td><td>运行 `windeployqt` 或添加 Qt bin 目录到 PATH</td></tr>
 <tr><td>SM2/SM4/SM3 不可用</td><td>OpenSSL 版本不对</td><td>确认使用 OpenSSL 3.x（非 1.x）</td></tr>
-<tr><td>界面中文显示乱码</td><td>编码问题</td><td>已设置 UTF-8 编码，若仍乱码检查源文件编码</td></tr>
+<tr><td>界面中文显示乱码</td><td>编码问题</td><td>`main.cpp` 已调用 `QTextCodec::setCodecForLocale(codecForLocale())`，若仍乱码检查源文件编码</td></tr>
 </tbody></table>
 
 <h3>Qt Creator 问题</h3>
@@ -316,8 +326,8 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 2em 0; }
 <li>按 **F2** 可快速打开程序工作目录，方便查看生成的证书文件</li>
 <li>证书输出目录：`<工作目录>/dir-certs/`</li>
 <li>配置文件：`<工作目录>/Configs/AppMaster.ini`</li>
-<li>启动时日志会输出 SM2/SM3/SM4/CMAC 是否可用</li>
-<li>证书生成调试：设置 `USE_OPENSSL_TOOL_HANDLER=1` 切换到命令行模式对比结果</li>
+<li>各功能区按钮的加解密/摘要入参与结果会通过 `qDebug()` 输出，便于对照排查</li>
+<li>证书生成调试：将 `modules/certificatemanager/certificatemanager.h` 中的 `#define USE_OPENSSL_TOOL_HANDLER (0)` 改为 `(1)` 切换到 openssl.exe 命令行模式对比结果（**编译期宏，改环境变量无效，必须重新编译**）</li>
 </ol>
 </div>
 <div class="footer"><p>📄 文档转换 · 笔名 CetXiyuan</p></div>
